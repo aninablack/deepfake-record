@@ -151,7 +151,18 @@ async function logIngestRun(client, fetched, upserted) {
 module.exports = async (_req, res) => {
   try {
     const client = getServiceClient();
-    const raw = await fetchGdelt();
+    let raw = [];
+    let warning = null;
+    try {
+      raw = await fetchGdelt();
+    } catch (err) {
+      if (String(err.message || '').includes('GDELT request failed (429)')) {
+        warning = 'Primary GDELT feed rate-limited; run skipped safely.';
+        raw = [];
+      } else {
+        throw err;
+      }
+    }
     const rawContext = await fetchGdeltContext();
     const incidents = await Promise.all(raw.map((item, idx) => normalize(item, idx)));
     const contextArticles = rawContext.map((article) => {
@@ -182,6 +193,7 @@ module.exports = async (_req, res) => {
       upserted: result.inserted,
       context_fetched: rawContext.length,
       context_upserted: contextResult.inserted,
+      warning,
       at: new Date().toISOString(),
     });
   } catch (error) {
