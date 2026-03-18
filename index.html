@@ -96,7 +96,16 @@
     min-width: 160px;
   }
 
-  .df-counter-block { display: none; }
+  .df-counter-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-left: 1px solid #ddd;
+    padding-left: 28px;
+    min-width: 210px;
+    min-height: 210px;
+  }
 
   .df-screen {
     width: 155px;
@@ -298,7 +307,15 @@
   @media (max-width: 700px) {
     .df-gallery { columns: 2; padding: 16px; }
     .df-hero { grid-template-columns: 1fr; }
-    .df-right-block { border-left: none; border-top: 1px solid #ddd; padding-left: 0; padding-top: 16px; }
+    .df-counter-block {
+      border-left: none;
+      border-top: 1px solid #ddd;
+      padding-left: 0;
+      padding-top: 16px;
+      min-width: 0;
+      min-height: auto;
+      align-items: flex-start;
+    }
     .df-masthead { padding: 14px 16px; }
     .df-filters { padding: 10px 16px; }
   }
@@ -457,7 +474,10 @@
       <h1 class="df-hero-headline">Everything you see<br><em>is a deepfake.</em></h1>
     </div>
 
-    <div class="df-counter-block"></div>
+    <div class="df-counter-block">
+      <div class="df-counter-num" id="counter">0</div>
+      <div class="df-counter-label" id="counterLabel">Incidents logged</div>
+    </div>
   </div>
 
   <div class="df-filters">
@@ -562,8 +582,8 @@ function ratioFromType(type) {
 }
 
 function imageHtml(url) {
-  if (!url) return '';
-  return `<img src="${safeText(url)}" alt="Incident image" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none';"/>`;
+  if (!url) return '<div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#777;">No image available</div>';
+  return `<img src="${safeText(url)}" alt="Incident image" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.replaceWith(Object.assign(document.createElement('div'),{textContent:'Image unavailable',style:'font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#777;'}));"/>`;
 }
 
 function filterCards(type, btn) {
@@ -582,6 +602,7 @@ function setMode(nextMode, btn) {
 }
 
 function getActiveCards() {
+  if (mode === 'verified' && verifiedCards.length === 0) return liveCards;
   return mode === 'verified' ? verifiedCards : liveCards;
 }
 
@@ -737,14 +758,13 @@ async function loadLiveData() {
 }
 
 function updateHeroCounters() {
-  const value = mode === 'verified' ? verifiedTotal : liveTotal;
-  const label = mode === 'verified' ? 'Verified archive' : 'Incidents logged';
+  const usingFallback = mode === 'verified' && verifiedTotal === 0;
+  const value = mode === 'verified' && !usingFallback ? verifiedTotal : liveTotal;
+  const label = mode === 'verified' && !usingFallback ? 'Verified archive' : 'Incidents logged';
   const counterEl = document.getElementById('counter');
   const labelEl = document.getElementById('counterLabel');
-  const scannedEl = document.getElementById('scannedCounter');
   if (counterEl) counterEl.textContent = (value || 0).toLocaleString();
   if (labelEl) labelEl.textContent = label;
-  if (scannedEl) scannedEl.textContent = (scannedCounter || 0).toLocaleString();
 }
 
 renderGallery();
