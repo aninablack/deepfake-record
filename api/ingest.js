@@ -94,12 +94,25 @@ async function upsertIncidents(client, incidents) {
   return { inserted: incidents.length };
 }
 
+async function logIngestRun(client, fetched, upserted) {
+  // Optional analytics table for "items scanned" counter.
+  const { error } = await client.from('ingest_runs').insert({
+    fetched,
+    upserted,
+    run_at: new Date().toISOString(),
+  });
+  // Do not fail ingest if this optional table is missing.
+  if (error) return false;
+  return true;
+}
+
 module.exports = async (_req, res) => {
   try {
     const client = getServiceClient();
     const raw = await fetchGdelt();
     const incidents = await Promise.all(raw.map((item, idx) => normalize(item, idx)));
     const result = await upsertIncidents(client, incidents);
+    await logIngestRun(client, raw.length, result.inserted);
     res.status(200).json({ ok: true, fetched: raw.length, upserted: result.inserted, at: new Date().toISOString() });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });

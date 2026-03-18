@@ -19,11 +19,20 @@ create table if not exists public.incidents (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.ingest_runs (
+  id uuid primary key default gen_random_uuid(),
+  fetched integer not null default 0,
+  upserted integer not null default 0,
+  run_at timestamptz not null default now()
+);
+
 create index if not exists incidents_published_at_idx on public.incidents (published_at desc);
 create index if not exists incidents_category_idx on public.incidents (category);
 create index if not exists incidents_platform_idx on public.incidents (platform);
+create index if not exists ingest_runs_run_at_idx on public.ingest_runs (run_at desc);
 
 alter table public.incidents enable row level security;
+alter table public.ingest_runs enable row level security;
 
 do $$
 begin
@@ -33,6 +42,20 @@ begin
   ) then
     create policy "Allow read incidents"
       on public.incidents
+      for select
+      to anon, authenticated
+      using (true);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'ingest_runs' and policyname = 'Allow read ingest runs'
+  ) then
+    create policy "Allow read ingest runs"
+      on public.ingest_runs
       for select
       to anon, authenticated
       using (true);
