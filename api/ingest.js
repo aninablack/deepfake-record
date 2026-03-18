@@ -13,13 +13,22 @@ async function fetchGdelt() {
   });
 
   const url = `https://api.gdeltproject.org/api/v2/doc/doc?${params.toString()}`;
-  const res = await fetch(url, { headers: { "user-agent": "deepfake-record/1.0" } });
-  if (!res.ok) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const res = await fetch(url, { headers: { "user-agent": "deepfake-record/1.0" } });
+    if (res.ok) {
+      const json = await res.json();
+      return Array.isArray(json.articles) ? json.articles : [];
+    }
+
     const body = await res.text();
+    if (res.status === 429 && attempt < 2) {
+      await sleep(6000 * (attempt + 1));
+      continue;
+    }
+
     throw new Error(`GDELT request failed (${res.status}): ${body.slice(0, 300)}`);
   }
-  const json = await res.json();
-  return Array.isArray(json.articles) ? json.articles : [];
+  return [];
 }
 
 function normalize(article) {
@@ -64,6 +73,10 @@ function parseSeenDate(seenDate) {
   }
 
   return new Date().toISOString();
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function upsertIncidents(client, incidents) {
