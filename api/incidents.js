@@ -7,7 +7,7 @@ module.exports = async (req, res) => {
 
     const { data, error } = await client
       .from("incidents")
-      .select("id,source_id,title,summary,category,category_label,confidence,platform,source_domain,article_url,image_url,published_at,status")
+      .select("id,source_id,title,summary,category,category_label,confidence,platform,source_domain,article_url,image_url,image_type,rights_status,usage_note,published_at,status")
       .order("published_at", { ascending: false })
       .limit(limit);
 

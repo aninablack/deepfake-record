@@ -334,6 +334,13 @@
     font-weight: 500;
   }
 
+  .df-card-visual {
+    font-size: 10px;
+    color: #333;
+    margin-top: 6px;
+    font-weight: 500;
+  }
+
   .df-card-badge {
     display: inline-block;
     font-size: 9px;
@@ -560,6 +567,8 @@ function renderGallery() {
         <div class="df-card-line">Source: ${safeText(c.source || 'GDELT feed')}</div>
         <div class="df-card-line">Reported by: ${safeText(c.source || 'GDELT feed')}</div>
         <div class="df-card-line">Detection confidence: ${Math.round((Number(c.confidence) || 0) * 100)}%</div>
+        <div class="df-card-visual">Visual: ${safeText(c.imageLabel || 'Documented incident image')} · Rights: ${safeText(c.rightsLabel || 'Link-only')}</div>
+        <div class="df-card-line">${safeText(c.usageNote || 'Status shown for editorial transparency.')}</div>
         <div class="df-card-status">Status: Reported as synthetic - not independently verified</div>
         <div class="df-card-badge ${c.badge}">${safeText(c.label)}</div>
       </div>
@@ -585,6 +594,17 @@ function renderTicker() {
 function mapIncident(incident, index) {
   const type = incident.category || 'synthetic';
   const label = typeToLabel[type] || 'Synthetic image';
+  const imageTypeMap = {
+    documented: 'Documented incident image',
+    illustrative: 'Illustrative synthetic image',
+    redacted: 'Redacted visual',
+  };
+  const rightsMap = {
+    licensed: 'Licensed',
+    public_reporting_use: 'Public-reporting use',
+    link_only: 'Link-only',
+    unknown: 'Unknown',
+  };
   return {
     type,
     badge: typeToCardBadge[type] || 'df-badge-synthetic',
@@ -598,6 +618,9 @@ function mapIncident(incident, index) {
     articleUrl: incident.article_url || '',
     confidence: incident.confidence || 0.5,
     source: incident.source_domain || 'GDELT feed',
+    imageLabel: imageTypeMap[incident.image_type] || 'Documented incident image',
+    rightsLabel: rightsMap[incident.rights_status] || 'Unknown',
+    usageNote: incident.usage_note || '',
     status: incident.status || 'reported_as_synthetic',
   };
 }
