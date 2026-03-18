@@ -10,7 +10,11 @@ async function fetchGdelt() {
 
 async function fetchGdeltContext() {
   try {
-    return await fetchGdeltByQuery(config.gdeltContextQuery, config.gdeltContextMaxRecords);
+    const primary = await fetchGdeltByQuery(config.gdeltContextQuery, config.gdeltContextMaxRecords);
+    if (primary.length > 0) return primary;
+    const fallbackQuery =
+      '(deepfake OR "synthetic media" OR "AI-generated" OR "voice clone" OR "face swap" OR "AI porn" OR "deepfake law")';
+    return await fetchGdeltByQuery(fallbackQuery, config.gdeltContextMaxRecords);
   } catch {
     // Context coverage is optional; never fail core incident ingestion.
     return [];
