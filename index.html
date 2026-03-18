@@ -96,6 +96,15 @@
     min-width: 160px;
   }
 
+  .df-counter-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    border-left: 1px solid #ddd;
+    padding-left: 24px;
+    min-width: 160px;
+  }
+
   .df-screen {
     width: 155px;
     height: 106px;
@@ -371,9 +380,7 @@
       <h1 class="df-hero-headline">Everything you see<br><em>is a deepfake.</em></h1>
     </div>
 
-    <div class="df-right-block">
-      <div class="df-screen" id="df-screen"></div>
-      <div class="df-screen-dots" id="df-dots"></div>
+    <div class="df-counter-block">
       <div class="df-counter-num" id="counter">2,847</div>
       <div class="df-counter-label">Incidents logged</div>
     </div>
@@ -397,14 +404,6 @@
 </div>
 
 <script>
-const fallbackSlides = [
-  { badge:'b-pol', label:'Political', kicker:'Reported synthetic · Web', headline:'World leader fabricated in crisis broadcast', imageUrl:'' },
-  { badge:'b-fraud', label:'Fraud', kicker:'Financial fraud · Reported', headline:'CEO voice clone authorised large transfer', imageUrl:'' },
-  { badge:'b-synth', label:'Synthetic image', kicker:'Election interference · Reported', headline:'Fabricated protest imagery spread before polling', imageUrl:'' },
-  { badge:'b-celeb', label:'Celebrity', kicker:'Non-consensual · Reported', headline:'Actress placed in fabricated ad without consent', imageUrl:'' },
-  { badge:'b-audio', label:'Voice clone', kicker:'Synthetic audio · Viral', headline:'Politician voice cloned to fake resignation', imageUrl:'' },
-];
-
 const fallbackCards = [
   { type:'political', badge:'df-badge-political', label:'Political', title:'World leader fabricated in manufactured crisis video', platform:'Telegram', ratio:'4/3', isNew:true, color:'#f5f0ea', imageUrl:'' },
   { type:'celeb', badge:'df-badge-celeb', label:'Celebrity', title:'Actress placed in fabricated advertisement without consent', platform:'Instagram', ratio:'3/4', isNew:false, color:'#eaeef5', imageUrl:'' },
@@ -413,7 +412,6 @@ const fallbackCards = [
   { type:'audio', badge:'df-badge-audio', label:'Voice clone', title:'Synthetic audio of politician falsely announcing resignation', platform:'WhatsApp', ratio:'1/1', isNew:true, color:'#f5eaf8', imageUrl:'' }
 ];
 
-let slides = [...fallbackSlides];
 let cards = [...fallbackCards];
 let tickerItems = [
   'Live synthetic media tracker',
@@ -426,17 +424,8 @@ let tickerItems = [
   'No manual approval queue'
 ];
 
-let current = 0;
 let counter = 2847;
 let filter = 'all';
-
-const typeToBadge = {
-  political: 'b-pol',
-  fraud: 'b-fraud',
-  celeb: 'b-celeb',
-  synthetic: 'b-synth',
-  audio: 'b-audio',
-};
 
 const typeToCardBadge = {
   political: 'df-badge-political',
@@ -488,28 +477,6 @@ function imageHtml(url) {
   return `<img src="${safeText(url)}" alt="Incident image" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none';"/>`;
 }
 
-function buildScreen() {
-  const sc = document.getElementById('df-screen');
-  const dots = document.getElementById('df-dots');
-  sc.innerHTML = '';
-  dots.innerHTML = '';
-
-  slides.forEach((s, i) => {
-    const d = document.createElement('div');
-    d.className = 'df-slide' + (i === 0 ? ' active' : '');
-    d.id = 'dfs-' + i;
-    d.innerHTML = `<div class="df-slide-visual">${imageHtml(s.imageUrl)}</div><div class="df-slide-overlay"></div><div class="df-slide-kicker">${safeText(s.kicker)}</div><div class="df-slide-headline">${safeText(s.headline)}</div><span class="df-slide-badge ${s.badge}">${safeText(s.label)}</span>`;
-    sc.appendChild(d);
-
-    const dot = document.createElement('div');
-    dot.className = 'df-screen-dot' + (i === 0 ? ' active' : '');
-    dot.id = 'dfd-' + i;
-    dots.appendChild(dot);
-  });
-
-  current = 0;
-}
-
 function filterCards(type, btn) {
   filter = type;
   document.querySelectorAll('.df-filter-btn').forEach((b) => b.classList.remove('active'));
@@ -547,21 +514,6 @@ function renderTicker() {
   document.getElementById('ticker').innerHTML = tickerItems.map((t) => `<span class="df-ticker-item">${safeText(t)}<span class="df-ticker-sep">·</span></span>`).join('');
 }
 
-function nextSlide() {
-  if (!slides.length) return;
-  const prevSlide = document.getElementById('dfs-' + current);
-  const prevDot = document.getElementById('dfd-' + current);
-  if (prevSlide) prevSlide.classList.remove('active');
-  if (prevDot) prevDot.classList.remove('active');
-
-  current = (current + 1) % slides.length;
-
-  const next = document.getElementById('dfs-' + current);
-  const nextDot = document.getElementById('dfd-' + current);
-  if (next) next.classList.add('active');
-  if (nextDot) nextDot.classList.add('active');
-}
-
 function mapIncident(incident, index) {
   const type = incident.category || 'synthetic';
   const label = typeToLabel[type] || 'Synthetic image';
@@ -581,16 +533,6 @@ function mapIncident(incident, index) {
   };
 }
 
-function mapSlide(card) {
-  return {
-    badge: typeToBadge[card.type] || 'b-synth',
-    label: card.label,
-    kicker: `${card.status === 'reported_as_synthetic' ? 'Reported synthetic' : 'Synthetic'} · ${card.platform.split(' · ')[0]}`,
-    headline: card.title,
-    imageUrl: card.imageUrl,
-  };
-}
-
 async function loadLiveData() {
   try {
     const [incidentsRes, statsRes] = await Promise.all([
@@ -603,7 +545,6 @@ async function loadLiveData() {
 
     if (incidentsPayload.ok && Array.isArray(incidentsPayload.incidents) && incidentsPayload.incidents.length) {
       cards = incidentsPayload.incidents.map(mapIncident);
-      slides = cards.slice(0, 5).map(mapSlide);
     }
 
     if (statsPayload.ok) {
@@ -632,15 +573,12 @@ async function loadLiveData() {
     ];
   }
 
-  buildScreen();
   renderGallery();
   renderTicker();
 }
 
-buildScreen();
 renderGallery();
 renderTicker();
-setInterval(nextSlide, 3200);
 setInterval(loadLiveData, 60000);
 loadLiveData();
 </script>
