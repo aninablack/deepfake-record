@@ -1,0 +1,13 @@
+{
+  "name": "deepfake-record",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Deepfake Record: live synthetic media tracker",
+  "scripts": {
+    "dev": "vercel dev",
+    "lint": "node --check api/ingest.js && node --check api/incidents.js && node --check api/stats.js && node --check lib/config.js && node --check lib/classify.js && node --check lib/placeholders.js && node --check lib/supabase.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.0"
+  }
+}

@@ -1,0 +1,646 @@
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  .df-root {
+    font-family: 'DM Sans', sans-serif;
+    background: #fff;
+    color: #111;
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  .df-masthead {
+    border-bottom: 1px solid #111;
+    padding: 18px 32px 14px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .df-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 11px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: #111;
+  }
+
+  .df-live-pill {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #111;
+    font-weight: 500;
+  }
+
+  .df-live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #c0392b;
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .df-hero {
+    border-bottom: 1px solid #111;
+    padding: 40px 32px 36px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .df-hero-kicker {
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 12px;
+    font-weight: 400;
+  }
+
+  .df-hero-headline {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(32px, 5vw, 52px);
+    line-height: 1.05;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: #111;
+    max-width: 640px;
+  }
+
+  .df-hero-headline em {
+    font-style: italic;
+    font-weight: 400;
+  }
+
+  .df-right-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    border-left: 1px solid #ddd;
+    padding-left: 24px;
+    min-width: 160px;
+  }
+
+  .df-screen {
+    width: 155px;
+    height: 106px;
+    background: #111;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #222;
+    flex-shrink: 0;
+  }
+
+  .df-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.7s ease;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 10px;
+  }
+
+  .df-slide.active { opacity: 1; }
+
+  .df-slide-visual { position: absolute; inset: 0; }
+
+  .df-slide-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.88) 0%, rgba(0,0,0,0) 55%);
+  }
+
+  .df-slide-kicker {
+    position: relative;
+    z-index: 2;
+    font-size: 7px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.5);
+    margin-bottom: 3px;
+  }
+
+  .df-slide-headline {
+    position: relative;
+    z-index: 2;
+    font-family: 'Playfair Display', serif;
+    font-size: 10px;
+    line-height: 1.25;
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .df-slide-badge {
+    position: relative;
+    z-index: 2;
+    display: inline-block;
+    font-size: 7px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 2px 5px;
+    margin-top: 4px;
+    font-weight: 500;
+  }
+
+  .df-screen-dots {
+    display: flex;
+    gap: 5px;
+    margin-top: 7px;
+    margin-bottom: 10px;
+  }
+
+  .df-screen-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #ccc;
+    transition: background 0.3s;
+  }
+
+  .df-screen-dot.active { background: #111; }
+
+  .df-counter-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 48px;
+    font-weight: 400;
+    color: #111;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+
+  .df-counter-label {
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #888;
+    margin-top: 4px;
+    font-weight: 400;
+    text-align: center;
+  }
+
+  .df-filters {
+    border-bottom: 1px solid #111;
+    padding: 10px 32px;
+    display: flex;
+    gap: 0;
+    overflow-x: auto;
+  }
+
+  .df-filter-btn {
+    background: none;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #888;
+    cursor: pointer;
+    padding: 6px 16px 6px 0;
+    margin-right: 16px;
+    border-bottom: 1.5px solid transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+    font-weight: 400;
+  }
+
+  .df-filter-btn:hover { color: #111; }
+  .df-filter-btn.active { color: #111; border-bottom-color: #111; font-weight: 500; }
+
+  .df-gallery {
+    padding: 28px 32px;
+    columns: 3;
+    column-gap: 20px;
+  }
+
+  @media (max-width: 700px) {
+    .df-gallery { columns: 2; padding: 16px; }
+    .df-hero { grid-template-columns: 1fr; }
+    .df-right-block { border-left: none; border-top: 1px solid #ddd; padding-left: 0; padding-top: 16px; }
+    .df-masthead { padding: 14px 16px; }
+    .df-filters { padding: 10px 16px; }
+  }
+
+  .df-card {
+    break-inside: avoid;
+    margin-bottom: 20px;
+    border: 0.5px solid #ddd;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+
+  .df-card:hover { border-color: #111; }
+
+  .df-card-img {
+    width: 100%;
+    aspect-ratio: var(--ratio, 1/1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .df-card-meta {
+    padding: 10px 12px 12px;
+    border-top: 0.5px solid #eee;
+  }
+
+  .df-card-type {
+    font-size: 9px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #888;
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+
+  .df-card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 13px;
+    line-height: 1.35;
+    color: #111;
+    font-weight: 400;
+  }
+
+  .df-card-platform {
+    font-size: 10px;
+    color: #aaa;
+    margin-top: 5px;
+    font-weight: 300;
+  }
+
+  .df-card-badge {
+    display: inline-block;
+    font-size: 9px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    margin-top: 6px;
+    font-weight: 500;
+  }
+
+  .df-badge-political { background: #f0ece7; color: #5a3e28; }
+  .df-badge-fraud { background: #fce8e8; color: #7a2020; }
+  .df-badge-celeb { background: #e8eef8; color: #1a3660; }
+  .df-badge-synthetic { background: #e8f4ec; color: #1a4a28; }
+  .df-badge-audio { background: #f5eaf8; color: #4a1a60; }
+
+  .df-ticker {
+    position: sticky;
+    bottom: 0;
+    background: #111;
+    color: #fff;
+    padding: 10px 0;
+    overflow: hidden;
+    border-top: 1px solid #111;
+  }
+
+  .df-ticker-track {
+    display: flex;
+    gap: 48px;
+    animation: ticker 28s linear infinite;
+    white-space: nowrap;
+  }
+
+  @keyframes ticker {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  .df-ticker-item {
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 300;
+    flex-shrink: 0;
+  }
+
+  .df-ticker-sep { color: #555; margin: 0 12px; }
+
+  .df-new-tag {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: #c0392b;
+    color: #fff;
+    font-size: 8px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    font-weight: 500;
+  }
+
+  .b-pol { background: #f5f0ea; color: #5a3e28; }
+  .b-fraud { background: #fce8e8; color: #7a2020; }
+  .b-celeb { background: #e8eef8; color: #1a3660; }
+  .b-synth { background: #e8f4ec; color: #1a4a28; }
+  .b-audio { background: #f5eaf8; color: #4a1a60; }
+</style>
+
+<div class="df-root">
+
+  <div class="df-masthead">
+    <div class="df-logo">Deepfake Record</div>
+    <div class="df-live-pill">
+      <div class="df-live-dot"></div>
+      Live feed
+    </div>
+  </div>
+
+  <div class="df-hero">
+    <div>
+      <div class="df-hero-kicker">A living archive of synthetic media</div>
+      <h1 class="df-hero-headline">Everything you see<br><em>is a deepfake.</em></h1>
+    </div>
+
+    <div class="df-right-block">
+      <div class="df-screen" id="df-screen"></div>
+      <div class="df-screen-dots" id="df-dots"></div>
+      <div class="df-counter-num" id="counter">2,847</div>
+      <div class="df-counter-label">Incidents logged</div>
+    </div>
+  </div>
+
+  <div class="df-filters">
+    <button class="df-filter-btn active" onclick="filterCards('all', this)">All</button>
+    <button class="df-filter-btn" onclick="filterCards('political', this)">Political</button>
+    <button class="df-filter-btn" onclick="filterCards('fraud', this)">Fraud</button>
+    <button class="df-filter-btn" onclick="filterCards('celeb', this)">Celebrity</button>
+    <button class="df-filter-btn" onclick="filterCards('synthetic', this)">Synthetic image</button>
+    <button class="df-filter-btn" onclick="filterCards('audio', this)">Voice clone</button>
+  </div>
+
+  <div class="df-gallery" id="gallery"></div>
+
+  <div class="df-ticker">
+    <div class="df-ticker-track" id="ticker"></div>
+  </div>
+
+</div>
+
+<script>
+const fallbackSlides = [
+  { badge:'b-pol', label:'Political', kicker:'Reported synthetic · Web', headline:'World leader fabricated in crisis broadcast', imageUrl:'' },
+  { badge:'b-fraud', label:'Fraud', kicker:'Financial fraud · Reported', headline:'CEO voice clone authorised large transfer', imageUrl:'' },
+  { badge:'b-synth', label:'Synthetic image', kicker:'Election interference · Reported', headline:'Fabricated protest imagery spread before polling', imageUrl:'' },
+  { badge:'b-celeb', label:'Celebrity', kicker:'Non-consensual · Reported', headline:'Actress placed in fabricated ad without consent', imageUrl:'' },
+  { badge:'b-audio', label:'Voice clone', kicker:'Synthetic audio · Viral', headline:'Politician voice cloned to fake resignation', imageUrl:'' },
+];
+
+const fallbackCards = [
+  { type:'political', badge:'df-badge-political', label:'Political', title:'World leader fabricated in manufactured crisis video', platform:'Telegram', ratio:'4/3', isNew:true, color:'#f5f0ea', imageUrl:'' },
+  { type:'celeb', badge:'df-badge-celeb', label:'Celebrity', title:'Actress placed in fabricated advertisement without consent', platform:'Instagram', ratio:'3/4', isNew:false, color:'#eaeef5', imageUrl:'' },
+  { type:'fraud', badge:'df-badge-fraud', label:'Fraud', title:'CEO voice clone used to authorise high-value wire transfer', platform:'Phone call', ratio:'1/1', isNew:true, color:'#faeaea', imageUrl:'' },
+  { type:'synthetic', badge:'df-badge-synthetic', label:'Synthetic image', title:'Manufactured protest image spread ahead of election', platform:'X', ratio:'16/9', isNew:false, color:'#eaf4ee', imageUrl:'' },
+  { type:'audio', badge:'df-badge-audio', label:'Voice clone', title:'Synthetic audio of politician falsely announcing resignation', platform:'WhatsApp', ratio:'1/1', isNew:true, color:'#f5eaf8', imageUrl:'' }
+];
+
+let slides = [...fallbackSlides];
+let cards = [...fallbackCards];
+let tickerItems = [
+  'Live synthetic media tracker',
+  'Status: reported as synthetic, auto-classified',
+  'No manual approval queue',
+  'GDELT refresh every 15 minutes',
+  'Free pipeline mode enabled',
+  'Live synthetic media tracker',
+  'Status: reported as synthetic, auto-classified',
+  'No manual approval queue'
+];
+
+let current = 0;
+let counter = 2847;
+let filter = 'all';
+
+const typeToBadge = {
+  political: 'b-pol',
+  fraud: 'b-fraud',
+  celeb: 'b-celeb',
+  synthetic: 'b-synth',
+  audio: 'b-audio',
+};
+
+const typeToCardBadge = {
+  political: 'df-badge-political',
+  fraud: 'df-badge-fraud',
+  celeb: 'df-badge-celeb',
+  synthetic: 'df-badge-synthetic',
+  audio: 'df-badge-audio',
+};
+
+const typeToLabel = {
+  political: 'Political',
+  fraud: 'Fraud',
+  celeb: 'Celebrity',
+  synthetic: 'Synthetic image',
+  audio: 'Voice clone',
+};
+
+const typeToColor = {
+  political: '#f5f0ea',
+  fraud: '#faeaea',
+  celeb: '#eaeef5',
+  synthetic: '#eaf4ee',
+  audio: '#f5eaf8',
+};
+
+function safeText(v) {
+  return (v || '').replace(/[&<>"]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+}
+
+function agoText(iso) {
+  if (!iso) return 'unknown time';
+  const minutes = Math.max(1, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+function ratioFromType(type) {
+  if (type === 'celeb') return '3/4';
+  if (type === 'synthetic') return '16/9';
+  if (type === 'political') return '4/3';
+  return '1/1';
+}
+
+function imageHtml(url) {
+  if (!url) return '';
+  return `<img src="${safeText(url)}" alt="Incident image" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.style.display='none';"/>`;
+}
+
+function buildScreen() {
+  const sc = document.getElementById('df-screen');
+  const dots = document.getElementById('df-dots');
+  sc.innerHTML = '';
+  dots.innerHTML = '';
+
+  slides.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = 'df-slide' + (i === 0 ? ' active' : '');
+    d.id = 'dfs-' + i;
+    d.innerHTML = `<div class="df-slide-visual">${imageHtml(s.imageUrl)}</div><div class="df-slide-overlay"></div><div class="df-slide-kicker">${safeText(s.kicker)}</div><div class="df-slide-headline">${safeText(s.headline)}</div><span class="df-slide-badge ${s.badge}">${safeText(s.label)}</span>`;
+    sc.appendChild(d);
+
+    const dot = document.createElement('div');
+    dot.className = 'df-screen-dot' + (i === 0 ? ' active' : '');
+    dot.id = 'dfd-' + i;
+    dots.appendChild(dot);
+  });
+
+  current = 0;
+}
+
+function filterCards(type, btn) {
+  filter = type;
+  document.querySelectorAll('.df-filter-btn').forEach((b) => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderGallery();
+}
+
+function renderGallery() {
+  const list = filter === 'all' ? cards : cards.filter((c) => c.type === filter);
+  document.getElementById('gallery').innerHTML = list.map((c) => `
+    <div class="df-card" data-url="${safeText(c.articleUrl || '')}">
+      <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">${imageHtml(c.imageUrl)}${c.isNew ? '<div class="df-new-tag">New</div>' : ''}</div>
+      <div class="df-card-meta">
+        <div class="df-card-type">${safeText(c.label)}</div>
+        <div class="df-card-title">${safeText(c.title)}</div>
+        <div class="df-card-platform">${safeText(c.platform)}</div>
+        <div class="df-card-badge ${c.badge}">${safeText(c.label)}</div>
+      </div>
+    </div>`).join('');
+  attachCardClicks();
+}
+
+function attachCardClicks() {
+  document.querySelectorAll('.df-card[data-url]').forEach((card) => {
+    card.onclick = null;
+    const url = card.getAttribute('data-url');
+    if (!url) return;
+    card.addEventListener('click', () => {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    });
+  });
+}
+
+function renderTicker() {
+  document.getElementById('ticker').innerHTML = tickerItems.map((t) => `<span class="df-ticker-item">${safeText(t)}<span class="df-ticker-sep">·</span></span>`).join('');
+}
+
+function nextSlide() {
+  if (!slides.length) return;
+  const prevSlide = document.getElementById('dfs-' + current);
+  const prevDot = document.getElementById('dfd-' + current);
+  if (prevSlide) prevSlide.classList.remove('active');
+  if (prevDot) prevDot.classList.remove('active');
+
+  current = (current + 1) % slides.length;
+
+  const next = document.getElementById('dfs-' + current);
+  const nextDot = document.getElementById('dfd-' + current);
+  if (next) next.classList.add('active');
+  if (nextDot) nextDot.classList.add('active');
+}
+
+function mapIncident(incident, index) {
+  const type = incident.category || 'synthetic';
+  const label = typeToLabel[type] || 'Synthetic image';
+  return {
+    type,
+    badge: typeToCardBadge[type] || 'df-badge-synthetic',
+    label,
+    title: incident.title || 'Untitled incident',
+    platform: `${incident.platform || incident.source_domain || 'Web'} · ${agoText(incident.published_at)}`,
+    ratio: ratioFromType(type),
+    isNew: index < 6,
+    color: typeToColor[type] || '#eaf4ee',
+    imageUrl: incident.image_url || '',
+    articleUrl: incident.article_url || '',
+    confidence: incident.confidence || 0.5,
+    status: incident.status || 'reported_as_synthetic',
+  };
+}
+
+function mapSlide(card) {
+  return {
+    badge: typeToBadge[card.type] || 'b-synth',
+    label: card.label,
+    kicker: `${card.status === 'reported_as_synthetic' ? 'Reported synthetic' : 'Synthetic'} · ${card.platform.split(' · ')[0]}`,
+    headline: card.title,
+    imageUrl: card.imageUrl,
+  };
+}
+
+async function loadLiveData() {
+  try {
+    const [incidentsRes, statsRes] = await Promise.all([
+      fetch('/api/incidents?limit=120'),
+      fetch('/api/stats'),
+    ]);
+
+    const incidentsPayload = await incidentsRes.json();
+    const statsPayload = await statsRes.json();
+
+    if (incidentsPayload.ok && Array.isArray(incidentsPayload.incidents) && incidentsPayload.incidents.length) {
+      cards = incidentsPayload.incidents.map(mapIncident);
+      slides = cards.slice(0, 5).map(mapSlide);
+    }
+
+    if (statsPayload.ok) {
+      counter = statsPayload.total || cards.length || counter;
+      document.getElementById('counter').textContent = counter.toLocaleString();
+
+      tickerItems = [
+        `${counter.toLocaleString()} incidents logged`,
+        `Last incident: ${statsPayload.latest_minutes_ago ? `${statsPayload.latest_minutes_ago} minutes ago` : 'unknown'}`,
+        `Top platform: ${statsPayload.top_platform || 'Unknown'}`,
+        'Status: reported as synthetic',
+        'Auto-categorized feed',
+        `${counter.toLocaleString()} incidents logged`,
+        `Top platform: ${statsPayload.top_platform || 'Unknown'}`,
+        'No manual approval queue',
+      ];
+    }
+  } catch (error) {
+    tickerItems = [
+      'Live connection unavailable',
+      'Showing fallback dataset',
+      'Check Supabase env keys',
+      'Run /api/ingest to populate data',
+      'Live connection unavailable',
+      'Showing fallback dataset',
+    ];
+  }
+
+  buildScreen();
+  renderGallery();
+  renderTicker();
+}
+
+buildScreen();
+renderGallery();
+renderTicker();
+setInterval(nextSlide, 3200);
+setInterval(loadLiveData, 60000);
+loadLiveData();
+</script>
