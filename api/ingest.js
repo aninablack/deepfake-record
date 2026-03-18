@@ -9,7 +9,12 @@ async function fetchGdelt() {
 }
 
 async function fetchGdeltContext() {
-  return fetchGdeltByQuery(config.gdeltContextQuery, config.gdeltContextMaxRecords);
+  try {
+    return await fetchGdeltByQuery(config.gdeltContextQuery, config.gdeltContextMaxRecords);
+  } catch {
+    // Context coverage is optional; never fail core incident ingestion.
+    return [];
+  }
 }
 
 async function fetchGdeltByQuery(query, maxrecords) {
@@ -25,7 +30,13 @@ async function fetchGdeltByQuery(query, maxrecords) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
     const res = await fetch(url, { headers: { 'user-agent': 'deepfake-record/1.0' } });
     if (res.ok) {
-      const json = await res.json();
+      const text = await res.text();
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        throw new Error(`GDELT returned non-JSON success payload: ${text.slice(0, 200)}`);
+      }
       return Array.isArray(json.articles) ? json.articles : [];
     }
 
