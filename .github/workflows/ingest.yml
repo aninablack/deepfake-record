@@ -1,0 +1,20 @@
+name: Ingest Deepfake Feed
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger ingest endpoint
+        env:
+          INGEST_URL: ${{ secrets.INGEST_URL }}
+        run: |
+          if [ -z "$INGEST_URL" ]; then
+            echo "Missing INGEST_URL secret"
+            exit 1
+          fi
+          curl -fsSL "$INGEST_URL"
