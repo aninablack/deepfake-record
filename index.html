@@ -629,6 +629,15 @@ function mapIncident(incident, index) {
   };
 }
 
+function buildVerifiedFromLive() {
+  const derived = [...liveCards]
+    .filter((c) => Number(c.confidence || 0) >= 0.6)
+    .sort((a, b) => Number(b.confidence || 0) - Number(a.confidence || 0))
+    .slice(0, 48)
+    .map((c, index) => ({ ...c, isNew: index < 6 }));
+  return derived;
+}
+
 async function loadLiveData() {
   try {
     const [incidentsReq, verifiedReq, statsReq] = await Promise.allSettled([
@@ -647,6 +656,10 @@ async function loadLiveData() {
 
     if (verifiedPayload.ok && Array.isArray(verifiedPayload.incidents) && verifiedPayload.incidents.length) {
       verifiedCards = verifiedPayload.incidents.map(mapIncident);
+    }
+
+    if (!verifiedCards.length) {
+      verifiedCards = buildVerifiedFromLive();
     }
 
     if (statsPayload.ok) {
@@ -679,6 +692,11 @@ async function loadLiveData() {
       'Live connection unavailable',
       'Showing fallback dataset',
     ];
+  }
+
+  if (!verifiedCards.length) {
+    verifiedCards = buildVerifiedFromLive();
+    verifiedTotal = verifiedCards.length;
   }
 
   renderGallery();
