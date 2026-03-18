@@ -59,8 +59,8 @@
     border-bottom: 1px solid #111;
     padding: 56px 32px 52px;
     display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 32px;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 40px;
     align-items: start;
   }
 
@@ -76,7 +76,7 @@
   .df-hero-headline {
     font-family: 'Cormorant Garamond', serif;
     font-size: clamp(48px, 4.5vw, 78px);
-    line-height: 1.18;
+    line-height: 1.22;
     font-weight: 600;
     letter-spacing: -0.01em;
     color: #111;
@@ -88,25 +88,17 @@
     font-weight: 400;
   }
 
-  .df-right-block {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0;
-    border-left: 1px solid #ddd;
-    padding-left: 24px;
-    min-width: 160px;
-  }
-
   .df-counter-block {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     border-left: 1px solid #ddd;
-    padding-left: 28px;
-    min-width: 300px;
+    padding-left: 36px;
+    width: 340px;
     min-height: 260px;
+    justify-self: end;
+    align-self: center;
   }
 
   .df-screen {
@@ -204,7 +196,7 @@
     letter-spacing: 0.2em;
     text-transform: uppercase;
     color: #888;
-    margin-top: 14px;
+    margin-top: 18px;
     font-weight: 400;
     text-align: center;
   }
