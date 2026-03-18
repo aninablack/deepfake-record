@@ -224,8 +224,17 @@
     border-bottom: 1px solid #111;
     padding: 10px 32px;
     display: flex;
+    align-items: center;
     gap: 0;
     overflow-x: auto;
+  }
+
+  .df-mode-switch {
+    display: flex;
+    gap: 8px;
+    margin-right: 18px;
+    padding-right: 18px;
+    border-right: 1px solid #ddd;
   }
 
   .df-filter-btn {
@@ -411,7 +420,7 @@
 
     <div class="df-counter-block">
       <div class="df-counter-num" id="counter">2,847</div>
-      <div class="df-counter-label">Incidents logged</div>
+      <div class="df-counter-label" id="counterLabel">Incidents logged</div>
       <div class="df-sub-counter">
         <div class="df-sub-counter-num" id="scannedCounter">2,847</div>
         <div class="df-counter-label">Items scanned</div>
@@ -420,6 +429,10 @@
   </div>
 
   <div class="df-filters">
+    <div class="df-mode-switch">
+      <button class="df-filter-btn active" id="mode-live" onclick="setMode('live', this)">Live Feed</button>
+      <button class="df-filter-btn" id="mode-verified" onclick="setMode('verified', this)">Verified Archive</button>
+    </div>
     <button class="df-filter-btn active" onclick="filterCards('all', this)">All</button>
     <button class="df-filter-btn" onclick="filterCards('political', this)">Political</button>
     <button class="df-filter-btn" onclick="filterCards('fraud', this)">Fraud</button>
@@ -445,7 +458,8 @@ const fallbackCards = [
   { type:'audio', badge:'df-badge-audio', label:'Voice clone', title:'Synthetic audio of politician falsely announcing resignation', platform:'WhatsApp', ratio:'1/1', isNew:true, color:'#f5eaf8', imageUrl:'' }
 ];
 
-let cards = [...fallbackCards];
+let liveCards = [...fallbackCards];
+let verifiedCards = [];
 let tickerItems = [
   'Live synthetic media tracker',
   'Status: reported as synthetic, auto-classified',
@@ -460,6 +474,9 @@ let tickerItems = [
 let counter = 2847;
 let scannedCounter = 2847;
 let filter = 'all';
+let mode = 'live';
+let liveTotal = 0;
+let verifiedTotal = 0;
 
 const typeToCardBadge = {
   political: 'df-badge-political',
@@ -513,12 +530,25 @@ function imageHtml(url) {
 
 function filterCards(type, btn) {
   filter = type;
-  document.querySelectorAll('.df-filter-btn').forEach((b) => b.classList.remove('active'));
+  document.querySelectorAll('.df-filters > .df-filter-btn').forEach((b) => b.classList.remove('active'));
   btn.classList.add('active');
   renderGallery();
 }
 
+function setMode(nextMode, btn) {
+  mode = nextMode;
+  document.querySelectorAll('.df-mode-switch .df-filter-btn').forEach((b) => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateHeroCounters();
+  renderGallery();
+}
+
+function getActiveCards() {
+  return mode === 'verified' ? verifiedCards : liveCards;
+}
+
 function renderGallery() {
+  const cards = getActiveCards();
   const list = filter === 'all' ? cards : cards.filter((c) => c.type === filter);
   document.getElementById('gallery').innerHTML = list.map((c) => `
     <div class="df-card" data-url="${safeText(c.articleUrl || '')}">
@@ -574,32 +604,40 @@ function mapIncident(incident, index) {
 
 async function loadLiveData() {
   try {
-    const [incidentsRes, statsRes] = await Promise.all([
+    const [incidentsRes, verifiedRes, statsRes] = await Promise.all([
       fetch('/api/incidents?limit=120'),
+      fetch('/api/verified?limit=300'),
       fetch('/api/stats'),
     ]);
 
     const incidentsPayload = await incidentsRes.json();
+    const verifiedPayload = await verifiedRes.json();
     const statsPayload = await statsRes.json();
 
     if (incidentsPayload.ok && Array.isArray(incidentsPayload.incidents) && incidentsPayload.incidents.length) {
-      cards = incidentsPayload.incidents.map(mapIncident);
+      liveCards = incidentsPayload.incidents.map(mapIncident);
+    }
+
+    if (verifiedPayload.ok && Array.isArray(verifiedPayload.incidents) && verifiedPayload.incidents.length) {
+      verifiedCards = verifiedPayload.incidents.map(mapIncident);
     }
 
     if (statsPayload.ok) {
-      counter = statsPayload.total || cards.length || counter;
+      liveTotal = statsPayload.live_total || statsPayload.total || liveCards.length || liveTotal;
+      verifiedTotal = statsPayload.verified_total || verifiedCards.length || verifiedTotal;
       scannedCounter = statsPayload.scanned_total || scannedCounter;
-      document.getElementById('counter').textContent = counter.toLocaleString();
-      document.getElementById('scannedCounter').textContent = scannedCounter.toLocaleString();
+      updateHeroCounters();
 
       tickerItems = [
-        `${counter.toLocaleString()} incidents logged`,
+        `${liveTotal.toLocaleString()} live incidents logged`,
+        `${verifiedTotal.toLocaleString()} verified archive incidents`,
         `${scannedCounter.toLocaleString()} items scanned`,
         `Last incident: ${statsPayload.latest_minutes_ago ? `${statsPayload.latest_minutes_ago} minutes ago` : 'unknown'}`,
         `Top platform: ${statsPayload.top_platform || 'Unknown'}`,
         'Status: reported as synthetic',
         'Auto-categorized feed',
-        `${counter.toLocaleString()} incidents logged`,
+        `${liveTotal.toLocaleString()} live incidents logged`,
+        `${verifiedTotal.toLocaleString()} verified archive incidents`,
         `${scannedCounter.toLocaleString()} items scanned`,
         `Top platform: ${statsPayload.top_platform || 'Unknown'}`,
         'No manual approval queue',
@@ -618,6 +656,14 @@ async function loadLiveData() {
 
   renderGallery();
   renderTicker();
+}
+
+function updateHeroCounters() {
+  const value = mode === 'verified' ? verifiedTotal : liveTotal;
+  const label = mode === 'verified' ? 'Verified archive' : 'Incidents logged';
+  document.getElementById('counter').textContent = (value || 0).toLocaleString();
+  document.getElementById('counterLabel').textContent = label;
+  document.getElementById('scannedCounter').textContent = (scannedCounter || 0).toLocaleString();
 }
 
 renderGallery();

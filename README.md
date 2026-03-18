@@ -20,7 +20,13 @@ This project keeps your approved design and wires it to live data.
 ## Endpoints
 - `/api/ingest`: fetch and store latest incidents
 - `/api/incidents?limit=80`: latest incidents for gallery
+- `/api/verified?limit=300`: verified historical archive incidents
 - `/api/stats`: counter and ticker stats
+
+## Verified Archive
+- Use `historical_verified_incidents` for curated, defensible incidents.
+- CSV template: [`data/verified_archive_template.csv`](./data/verified_archive_template.csv)
+- Recommended fields include `source_url`, `published_at`, `debunked`, and `reach_estimate`.
 
 ## Notes
 - Feed is intentionally `reported_as_synthetic`, not a legal verdict.

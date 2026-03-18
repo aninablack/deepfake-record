@@ -1,0 +1,2 @@
+source_id,title,summary,category,category_label,confidence,platform,source_domain,source_url,image_url,reach_estimate,debunked,published_at,status
+example-001,"Documented deepfake election clip","Archival verified incident from research publication",political,Political,0.92,YouTube,dfrlab.org,https://dfrlab.org/example-incident,https://image.pollinations.ai/prompt/redacted+editorial+still,,true,2025-11-02T10:30:00Z,verified_archive
