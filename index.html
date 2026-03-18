@@ -257,6 +257,45 @@
   .df-filter-btn:hover { color: #111; }
   .df-filter-btn.active { color: #111; border-bottom-color: #111; font-weight: 500; }
 
+  .df-context {
+    border-bottom: 1px solid #111;
+    padding: 14px 32px;
+  }
+
+  .df-context-head {
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #666;
+    margin-bottom: 10px;
+  }
+
+  .df-context-list {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .df-context-item {
+    border: 0.5px solid #ddd;
+    padding: 10px;
+    cursor: pointer;
+  }
+
+  .df-context-topic {
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #888;
+  }
+
+  .df-context-title {
+    margin-top: 6px;
+    font-size: 12px;
+    line-height: 1.35;
+    color: #111;
+  }
+
   .df-gallery {
     padding: 28px 32px;
     columns: 3;
@@ -448,6 +487,11 @@
     <button class="df-filter-btn" onclick="filterCards('audio', this)">Voice clone</button>
   </div>
 
+  <div class="df-context">
+    <div class="df-context-head">Context & Impact Coverage</div>
+    <div class="df-context-list" id="contextList"></div>
+  </div>
+
   <div class="df-gallery" id="gallery"></div>
 
   <div class="df-ticker">
@@ -467,6 +511,7 @@ const fallbackCards = [
 
 let liveCards = [...fallbackCards];
 let verifiedCards = [];
+let contextArticles = [];
 let tickerItems = [
   'Live synthetic media tracker',
   'Status: reported as synthetic, auto-classified',
@@ -591,6 +636,23 @@ function renderTicker() {
   document.getElementById('ticker').innerHTML = tickerItems.map((t) => `<span class="df-ticker-item">${safeText(t)}<span class="df-ticker-sep">·</span></span>`).join('');
 }
 
+function renderContext() {
+  const list = contextArticles.slice(0, 9);
+  const root = document.getElementById('contextList');
+  root.innerHTML = list.map((a) => `
+    <div class="df-context-item" data-url="${safeText(a.article_url || '')}">
+      <div class="df-context-topic">${safeText(a.topic_label || 'Public Impact')}</div>
+      <div class="df-context-title">${safeText(a.title || 'Untitled context article')}</div>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('.df-context-item[data-url]').forEach((item) => {
+    const url = item.getAttribute('data-url');
+    if (!url) return;
+    item.addEventListener('click', () => window.open(url, '_blank', 'noopener,noreferrer'));
+  });
+}
+
 function mapIncident(incident, index) {
   const type = incident.category || 'synthetic';
   const label = typeToLabel[type] || 'Synthetic image';
@@ -627,14 +689,16 @@ function mapIncident(incident, index) {
 
 async function loadLiveData() {
   try {
-    const [incidentsRes, verifiedRes, statsRes] = await Promise.all([
+    const [incidentsRes, verifiedRes, contextRes, statsRes] = await Promise.all([
       fetch('/api/incidents?limit=120'),
       fetch('/api/verified?limit=300'),
+      fetch('/api/context?limit=24'),
       fetch('/api/stats'),
     ]);
 
     const incidentsPayload = await incidentsRes.json();
     const verifiedPayload = await verifiedRes.json();
+    const contextPayload = await contextRes.json();
     const statsPayload = await statsRes.json();
 
     if (incidentsPayload.ok && Array.isArray(incidentsPayload.incidents) && incidentsPayload.incidents.length) {
@@ -643,6 +707,10 @@ async function loadLiveData() {
 
     if (verifiedPayload.ok && Array.isArray(verifiedPayload.incidents) && verifiedPayload.incidents.length) {
       verifiedCards = verifiedPayload.incidents.map(mapIncident);
+    }
+
+    if (contextPayload.ok && Array.isArray(contextPayload.articles)) {
+      contextArticles = contextPayload.articles;
     }
 
     if (statsPayload.ok) {
@@ -678,6 +746,7 @@ async function loadLiveData() {
   }
 
   renderGallery();
+  renderContext();
   renderTicker();
 }
 
@@ -690,6 +759,7 @@ function updateHeroCounters() {
 }
 
 renderGallery();
+renderContext();
 renderTicker();
 setInterval(loadLiveData, 60000);
 loadLiveData();

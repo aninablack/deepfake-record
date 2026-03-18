@@ -21,6 +21,7 @@ This project keeps your approved design and wires it to live data.
 - `/api/ingest`: fetch and store latest incidents
 - `/api/incidents?limit=80`: latest incidents for gallery
 - `/api/verified?limit=300`: verified historical archive incidents
+- `/api/context?limit=24`: related context coverage (policy, elections, youth, platform impact)
 - `/api/stats`: counter and ticker stats
 
 ## Verified Archive

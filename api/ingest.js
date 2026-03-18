@@ -5,10 +5,18 @@ const { resolveImageUrl } = require('../lib/placeholders');
 const { scoreWithProviders, blendConfidence } = require('../lib/detectors');
 
 async function fetchGdelt() {
+  return fetchGdeltByQuery(config.gdeltQuery, config.gdeltMaxRecords);
+}
+
+async function fetchGdeltContext() {
+  return fetchGdeltByQuery(config.gdeltContextQuery, config.gdeltContextMaxRecords);
+}
+
+async function fetchGdeltByQuery(query, maxrecords) {
   const params = new URLSearchParams({
-    query: config.gdeltQuery,
+    query,
     mode: 'artlist',
-    maxrecords: String(config.gdeltMaxRecords),
+    maxrecords: String(maxrecords),
     format: 'json',
     sort: 'datedesc',
   });
@@ -30,6 +38,15 @@ async function fetchGdelt() {
     throw new Error(`GDELT request failed (${res.status}): ${body.slice(0, 300)}`);
   }
   return [];
+}
+
+function classifyContextTopic(text) {
+  const content = (text || '').toLowerCase();
+  if (/(law|regulation|bill|act|policy|senate|parliament|legislation)/.test(content)) return 'Policy & Law';
+  if (/(election|vote|campaign|democracy|politic|bias)/.test(content)) return 'Politics & Elections';
+  if (/(teen|youth|child|school|mental health|body image)/.test(content)) return 'Youth Impact';
+  if (/(algorithm|platform|recommendation|feed|moderation|social media)/.test(content)) return 'Platform Effects';
+  return 'Public Impact';
 }
 
 async function normalize(article, index) {
@@ -97,6 +114,13 @@ async function upsertIncidents(client, incidents) {
   return { inserted: incidents.length };
 }
 
+async function upsertContextArticles(client, articles) {
+  if (articles.length === 0) return { inserted: 0 };
+  const { error } = await client.from('context_articles').upsert(articles, { onConflict: 'source_id' });
+  if (error) throw error;
+  return { inserted: articles.length };
+}
+
 async function logIngestRun(client, fetched, upserted) {
   // Optional analytics table for "items scanned" counter.
   const { error } = await client.from('ingest_runs').insert({
@@ -113,10 +137,38 @@ module.exports = async (_req, res) => {
   try {
     const client = getServiceClient();
     const raw = await fetchGdelt();
+    const rawContext = await fetchGdeltContext();
     const incidents = await Promise.all(raw.map((item, idx) => normalize(item, idx)));
+    const contextArticles = rawContext.map((article) => {
+      const title = (article.title || '').trim();
+      const sourceDomain = article.domain || 'unknown';
+      const articleUrl = article.url || null;
+      const publishedAt = parseSeenDate(article.seendate);
+      const topic = classifyContextTopic(`${title} ${sourceDomain}`);
+      return {
+        source_id: articleUrl || `${sourceDomain}:${title}`,
+        title: title || 'Untitled context article',
+        summary:
+          (article.seendate ? `Seen ${article.seendate}` : '') +
+          (article.sourcecountry ? ` · ${article.sourcecountry}` : ''),
+        topic_label: topic,
+        source_domain: sourceDomain,
+        article_url: articleUrl,
+        image_url: resolveImageUrl(article),
+        published_at: publishedAt,
+      };
+    });
     const result = await upsertIncidents(client, incidents);
+    const contextResult = await upsertContextArticles(client, contextArticles);
     await logIngestRun(client, raw.length, result.inserted);
-    res.status(200).json({ ok: true, fetched: raw.length, upserted: result.inserted, at: new Date().toISOString() });
+    res.status(200).json({
+      ok: true,
+      fetched: raw.length,
+      upserted: result.inserted,
+      context_fetched: rawContext.length,
+      context_upserted: contextResult.inserted,
+      at: new Date().toISOString(),
+    });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message });
   }

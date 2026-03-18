@@ -51,15 +51,30 @@ create table if not exists public.historical_verified_incidents (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.context_articles (
+  id uuid primary key default gen_random_uuid(),
+  source_id text not null unique,
+  title text not null,
+  summary text,
+  topic_label text not null default 'Public Impact',
+  source_domain text,
+  article_url text,
+  image_url text,
+  published_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists incidents_published_at_idx on public.incidents (published_at desc);
 create index if not exists incidents_category_idx on public.incidents (category);
 create index if not exists incidents_platform_idx on public.incidents (platform);
 create index if not exists ingest_runs_run_at_idx on public.ingest_runs (run_at desc);
 create index if not exists historical_verified_published_at_idx on public.historical_verified_incidents (published_at desc);
+create index if not exists context_articles_published_at_idx on public.context_articles (published_at desc);
 
 alter table public.incidents enable row level security;
 alter table public.ingest_runs enable row level security;
 alter table public.historical_verified_incidents enable row level security;
+alter table public.context_articles enable row level security;
 
 do $$
 begin
@@ -83,6 +98,20 @@ begin
   ) then
     create policy "Allow read ingest runs"
       on public.ingest_runs
+      for select
+      to anon, authenticated
+      using (true);
+  end if;
+end $$;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'context_articles' and policyname = 'Allow read context articles'
+  ) then
+    create policy "Allow read context articles"
+      on public.context_articles
       for select
       to anon, authenticated
       using (true);
