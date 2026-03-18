@@ -29,7 +29,7 @@ function normalize(article) {
   const sourceDomain = article.domain || "unknown";
   const articleUrl = article.url || null;
   const imageUrl = resolveImageUrl(article);
-  const publishedAt = article.seendate ? new Date(article.seendate).toISOString() : new Date().toISOString();
+  const publishedAt = parseSeenDate(article.seendate);
 
   return {
     source_id: articleUrl || `${sourceDomain}:${title}`,
@@ -47,6 +47,23 @@ function normalize(article) {
     published_at: publishedAt,
     status: "reported_as_synthetic",
   };
+}
+
+function parseSeenDate(seenDate) {
+  if (!seenDate) return new Date().toISOString();
+
+  const direct = new Date(seenDate);
+  if (!Number.isNaN(direct.getTime())) return direct.toISOString();
+
+  const compact = String(seenDate).trim();
+  const m = compact.match(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/);
+  if (m) {
+    const iso = `${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:${m[6]}Z`;
+    const parsed = new Date(iso);
+    if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
+  }
+
+  return new Date().toISOString();
 }
 
 async function upsertIncidents(client, incidents) {
