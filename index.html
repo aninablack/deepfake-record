@@ -96,14 +96,7 @@
     min-width: 160px;
   }
 
-  .df-counter-block {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    border-left: 1px solid #ddd;
-    padding-left: 24px;
-    min-width: 240px;
-  }
+  .df-counter-block { display: none; }
 
   .df-screen {
     width: 155px;
@@ -464,14 +457,7 @@
       <h1 class="df-hero-headline">Everything you see<br><em>is a deepfake.</em></h1>
     </div>
 
-    <div class="df-counter-block">
-      <div class="df-counter-num" id="counter">2,847</div>
-      <div class="df-counter-label" id="counterLabel">Incidents logged</div>
-      <div class="df-sub-counter">
-        <div class="df-sub-counter-num" id="scannedCounter">2,847</div>
-        <div class="df-counter-label">Items scanned</div>
-      </div>
-    </div>
+    <div class="df-counter-block"></div>
   </div>
 
   <div class="df-filters">
@@ -689,17 +675,17 @@ function mapIncident(incident, index) {
 
 async function loadLiveData() {
   try {
-    const [incidentsRes, verifiedRes, contextRes, statsRes] = await Promise.all([
+    const [incidentsReq, verifiedReq, contextReq, statsReq] = await Promise.allSettled([
       fetch('/api/incidents?limit=120'),
       fetch('/api/verified?limit=300'),
       fetch('/api/context?limit=24'),
       fetch('/api/stats'),
     ]);
 
-    const incidentsPayload = await incidentsRes.json();
-    const verifiedPayload = await verifiedRes.json();
-    const contextPayload = await contextRes.json();
-    const statsPayload = await statsRes.json();
+    const incidentsPayload = incidentsReq.status === 'fulfilled' ? await incidentsReq.value.json() : { ok: false };
+    const verifiedPayload = verifiedReq.status === 'fulfilled' ? await verifiedReq.value.json() : { ok: false };
+    const contextPayload = contextReq.status === 'fulfilled' ? await contextReq.value.json() : { ok: false };
+    const statsPayload = statsReq.status === 'fulfilled' ? await statsReq.value.json() : { ok: false };
 
     if (incidentsPayload.ok && Array.isArray(incidentsPayload.incidents) && incidentsPayload.incidents.length) {
       liveCards = incidentsPayload.incidents.map(mapIncident);
@@ -753,9 +739,12 @@ async function loadLiveData() {
 function updateHeroCounters() {
   const value = mode === 'verified' ? verifiedTotal : liveTotal;
   const label = mode === 'verified' ? 'Verified archive' : 'Incidents logged';
-  document.getElementById('counter').textContent = (value || 0).toLocaleString();
-  document.getElementById('counterLabel').textContent = label;
-  document.getElementById('scannedCounter').textContent = (scannedCounter || 0).toLocaleString();
+  const counterEl = document.getElementById('counter');
+  const labelEl = document.getElementById('counterLabel');
+  const scannedEl = document.getElementById('scannedCounter');
+  if (counterEl) counterEl.textContent = (value || 0).toLocaleString();
+  if (labelEl) labelEl.textContent = label;
+  if (scannedEl) scannedEl.textContent = (scannedCounter || 0).toLocaleString();
 }
 
 renderGallery();
