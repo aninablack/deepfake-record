@@ -77,10 +77,10 @@ function passesStrictRelevance(article, title, description) {
   if (/(opinion|editorial|analysis)/i.test(title) && !titleSignal) return false;
 
   // Raise quality bar globally to reduce false positives.
-  if (deepfakeRelevanceScore(title, description) < 3) return false;
+  if (deepfakeRelevanceScore(title, description) < 2) return false;
 
-  // News sources require explicit title signal.
-  if (sourceType === 'news' && !titleSignal) return false;
+  // News sources should still carry a strong signal in title OR body.
+  if (sourceType === 'news' && !titleSignal && !fullSignal) return false;
 
   return true;
 }
@@ -470,6 +470,15 @@ module.exports = async (_req, res) => {
         raw = [];
       } else {
         throw err;
+      }
+    }
+    if (raw.length === 0) {
+      const gdeltFallback = await fetchGdeltContext();
+      if (gdeltFallback.length > 0) {
+        raw = gdeltFallback.map((item) => ({ ...item, source_type: item.source_type || 'news' }));
+        warning = warning
+          ? `${warning} Using fallback GDELT context feed.`
+          : 'Using fallback GDELT context feed.';
       }
     }
     const rawContext = await fetchGdeltContext();
