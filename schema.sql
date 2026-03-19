@@ -11,6 +11,7 @@ create table if not exists public.incidents (
   source_domain text,
   platform text,
   source_type text not null default 'news' check (source_type in ('news','factcheck','social_report')),
+  claim_url text,
   reported_on text,
   article_url text,
   image_url text,
@@ -25,6 +26,7 @@ create table if not exists public.incidents (
 );
 
 alter table public.incidents add column if not exists source_type text not null default 'news';
+alter table public.incidents add column if not exists claim_url text;
 alter table public.incidents add column if not exists reported_on text;
 do $$
 begin

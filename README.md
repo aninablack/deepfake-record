@@ -11,6 +11,7 @@ This project keeps your approved design and wires it to live data.
 - Use article image when available; fallback to free Pollinations image placeholders
 - Normalize all sources into one incidents table (`source_type`: `news`, `factcheck`, `social_report`)
 - Tag incidents with `reported_on` platform hints (X, TikTok, Instagram, etc.) when found in title/body/url
+- Store `claim_url` when an original social post URL is discoverable from source feeds
 - Upsert incidents into Supabase and publish immediately
 - Frontend loads live incidents + stats from API
 

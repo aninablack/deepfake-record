@@ -98,23 +98,36 @@ function parseRssItems(xml) {
   const items = [];
   const itemBlocks = xml.match(/<item[\s\S]*?<\/item>/gi) || [];
   for (const block of itemBlocks) {
+    const links = Array.from(block.matchAll(/https?:\/\/[^\s"'<>]+/gi)).map((m) => m[0]);
     items.push({
       title: matchTag(block, 'title'),
       description: matchTag(block, 'description'),
       link: matchTag(block, 'link'),
       pubDate: matchTag(block, 'pubDate') || matchTag(block, 'dc:date'),
+      links,
     });
   }
   const entryBlocks = xml.match(/<entry[\s\S]*?<\/entry>/gi) || [];
   for (const block of entryBlocks) {
+    const links = Array.from(block.matchAll(/https?:\/\/[^\s"'<>]+/gi)).map((m) => m[0]);
     items.push({
       title: matchTag(block, 'title'),
       description: matchTag(block, 'summary') || matchTag(block, 'content'),
       link: matchAttrTag(block, 'link', 'href') || matchTag(block, 'id'),
       pubDate: matchTag(block, 'updated') || matchTag(block, 'published'),
+      links,
     });
   }
   return items;
+}
+
+function pickClaimUrl(candidateLinks = []) {
+  const socialNeedles = ['x.com/', 'twitter.com/', 'tiktok.com/', 'instagram.com/', 'facebook.com/', 'youtube.com/', 'youtu.be/', 'reddit.com/', 't.me/'];
+  for (const link of candidateLinks) {
+    const lower = String(link || '').toLowerCase();
+    if (socialNeedles.some((n) => lower.includes(n))) return canonicalizeUrl(link);
+  }
+  return null;
 }
 
 async function fetchRssArticles() {
@@ -127,13 +140,14 @@ async function fetchRssArticles() {
       const xml = await res.text();
       const parsed = parseRssItems(xml).slice(0, config.rssMaxItemsPerFeed);
       for (const item of parsed) {
+        const canonicalLink = canonicalizeUrl(item.link);
         records.push({
           title: item.title,
-          url: item.link,
+          url: canonicalLink,
           seendate: item.pubDate,
           domain: (() => {
             try {
-              return new URL(item.link).hostname.replace(/^www\./, '');
+              return new URL(canonicalLink).hostname.replace(/^www\./, '');
             } catch {
               return 'unknown';
             }
@@ -143,6 +157,7 @@ async function fetchRssArticles() {
           socialimage: null,
           description: item.description || '',
           source_type: 'factcheck',
+          claim_url: pickClaimUrl(item.links || []),
         });
       }
     } catch {
@@ -193,6 +208,7 @@ async function fetchRedditArticles() {
           description: post.selftext || '',
           source_type: 'social_report',
           reddit_permalink: post.permalink ? `https://www.reddit.com${post.permalink}` : null,
+          claim_url: canonicalizeUrl(articleUrl),
         });
       }
     } catch {
@@ -256,6 +272,7 @@ async function normalize(article, index) {
   const imageUrl = resolveImageUrl(article);
   const publishedAt = parseSeenDate(article.seendate);
   const sourceType = article.source_type || 'news';
+  const claimUrl = article.claim_url || null;
   const reportedPlatforms = detectReportedPlatforms(`${title} ${description} ${articleUrl || ''}`);
   const reportedOn = reportedPlatforms.length ? reportedPlatforms.join(',') : null;
 
@@ -276,6 +293,7 @@ async function normalize(article, index) {
     source_domain: sourceDomain,
     platform: platformFromUrl(articleUrl || sourceDomain),
     source_type: sourceType,
+    claim_url: claimUrl,
     reported_on: reportedOn,
     article_url: articleUrl,
     image_url: imageUrl,
