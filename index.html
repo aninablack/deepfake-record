@@ -895,7 +895,23 @@ function getActiveCards() {
   const raw = mode === 'verified' && verifiedCards.length === 0
     ? liveCards
     : (mode === 'verified' ? verifiedCards : liveCards);
-  return dedupeCards(raw);
+  const deduped = dedupeCards(raw);
+  const minimumVisible = Math.min(mode === 'live' ? 120 : 60, raw.length);
+  if (deduped.length >= minimumVisible) return deduped;
+
+  // Safety floor: if dedupe gets too aggressive, top up from raw cards.
+  const out = [...deduped];
+  const seen = new Set(
+    out.map((c) => String(c.id || '') || `${canonicalUrl(c.articleUrl || '')}::${String(c.title || '')}`)
+  );
+  for (const card of raw) {
+    if (out.length >= minimumVisible) break;
+    const key = String(card.id || '') || `${canonicalUrl(card.articleUrl || '')}::${String(card.title || '')}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(card);
+  }
+  return out;
 }
 
 function canonicalUrl(url) {
@@ -910,70 +926,29 @@ function canonicalUrl(url) {
   }
 }
 
+function isHomepageLike(url) {
+  if (!url) return true;
+  try {
+    const u = new URL(url);
+    const path = String(u.pathname || '/').replace(/\/+$/, '') || '/';
+    const low = path.toLowerCase();
+    return path === '/' || low === '/home' || low === '/index' || low === '/index.html' || low === '/news';
+  } catch {
+    return true;
+  }
+}
+
 function dedupeCards(cards) {
-  const typeRank = { fraud: 6, political: 5, entertainment: 4 };
-  const byUrl = new Map();
-  const byTitle = new Map();
-  const titleFingerprint = (value) =>
-    String(value || '')
-      .toLowerCase()
-      .replace(/\|.*$/g, ' ')
-      .replace(/[\(\[]\s*debunked\s*[\)\]]/g, ' ')
-      .replace(/\b(debunked|fact[\s-]?check|aol\.co\.uk|the independent|bbc)\b/g, ' ')
-      .replace(/\bdeepfakes\b/g, 'deepfake')
-      .replace(/\bartists\b/g, 'artist')
-      .replace(/[\|\-:]\s*(bbc|cnn|reuters|ap|associated press|news|live updates?).*$/i, '')
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .split(' ')
-      .filter((w) => w.length > 2 && !['the', 'and', 'for', 'with', 'from', 'this', 'that', 'of', 'to', 'in', 'on', 'its', 'a', 'an'].includes(w))
-      .slice(0, 10)
-      .join(' ');
-
-  const pickBetter = (prev, next) => {
-    const hasRealImage = (card) => {
-      const u = String(card.imageUrl || '').toLowerCase().trim();
-      if (!u) return 0;
-      if (u.includes('image.pollinations.ai')) return 0;
-      return 1;
-    };
-    const sourceQuality = (card) => {
-      const s = String(card.source || '').toLowerCase();
-      return s === 'news.google.com' ? 0 : 1;
-    };
-    const prevScore = (typeRank[prev.type] || 0) + (Number(prev.confidence) || 0) + hasRealImage(prev) * 1.5 + sourceQuality(prev) * 0.75;
-    const nextScore = (typeRank[next.type] || 0) + (Number(next.confidence) || 0) + hasRealImage(next) * 1.5 + sourceQuality(next) * 0.75;
-    if (nextScore !== prevScore) return nextScore > prevScore ? next : prev;
-    const prevTime = new Date(prev.published_at || 0).getTime();
-    const nextTime = new Date(next.published_at || 0).getTime();
-    return nextTime > prevTime ? next : prev;
-  };
-
-  for (const c of cards) {
-    const u = canonicalUrl(c.articleUrl || '');
-    const tShort = titleFingerprint(c.title);
-    if (u) {
-      const prev = byUrl.get(u);
-      byUrl.set(u, prev ? pickBetter(prev, c) : c);
-      continue;
-    }
-    const key = tShort;
-    if (!tShort) continue;
-    const prev = byTitle.get(key);
-    byTitle.set(key, prev ? pickBetter(prev, c) : c);
+  const byKey = new Map();
+  for (const c of cards || []) {
+    const idKey = String(c.id || '').trim();
+    const urlKey = canonicalUrl(c.articleUrl || '');
+    const titleKey = String(c.title || '').trim().toLowerCase();
+    const key = idKey || urlKey || titleKey;
+    if (!key) continue;
+    if (!byKey.has(key)) byKey.set(key, c);
   }
-
-  // Secondary merge: collapse near-identical stories across different URLs and category mismatches.
-  for (const card of byUrl.values()) {
-    const tShort = titleFingerprint(card.title);
-    if (!tShort) continue;
-    const key = tShort;
-    const prev = byTitle.get(key);
-    byTitle.set(key, prev ? pickBetter(prev, card) : card);
-  }
-
-  return Array.from(byTitle.values());
+  return Array.from(byKey.values());
 }
 
 function isDeepfakeCard(card) {
@@ -1063,6 +1038,8 @@ function mapIncident(incident, index) {
     unknown: 'Unknown',
   };
   return {
+    id: incident.id || incident.source_id || '',
+    published_at: incident.published_at || '',
     type,
     badge: typeToCardBadge[type] || 'df-badge-entertainment',
     label,
@@ -1106,8 +1083,8 @@ function buildVerifiedFromLive() {
 async function loadLiveData() {
   try {
     const [incidentsReq, verifiedReq, statsReq] = await Promise.allSettled([
-      fetch('/api/incidents?limit=400'),
-      fetch('/api/verified?limit=400'),
+      fetch('/api/incidents?limit=800'),
+      fetch('/api/verified?limit=800'),
       fetch('/api/stats'),
     ]);
 

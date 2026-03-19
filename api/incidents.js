@@ -18,6 +18,19 @@ function isGoogleDomain(value) {
   return d === "news.google.com" || d.endsWith(".news.google.com") || d.includes("google.com");
 }
 
+function isLowQualityThumb(url) {
+  const u = String(url || "").toLowerCase();
+  if (!u) return true;
+  return (
+    /lh3\.googleusercontent\.com/.test(u) ||
+    /default[-_]?image|placeholder|fallback-graphics|top_image|og[_-]?image|social[_-]?image|fbshare|site-share|share-image|brand[-_]?image|no-image|coming-soon/.test(
+      u
+    ) ||
+    /\/themes\/.*og-image|\/theme\/images\/fbshare/.test(u) ||
+    /logo|favicon|site-icon|wordmark|brandmark/.test(u)
+  );
+}
+
 function hasDeepfakeSignal(text) {
   return /(deepfake|deep fake|voice clone|cloned voice|vocal clone|synthetic voice|voice deepfake|audio deepfake|fake audio|fake video|face swap|synthetic media|ai impersonation|ai song|ai[- ]generated song|soundalike|mimic(?:ked|ry)? voice|ai porn|non-consensual)/i.test(
     String(text || "")
@@ -147,7 +160,6 @@ function dedupeAndFilter(rows) {
     const hay = `${row.title || ""} ${row.summary || ""} ${row.article_url || ""}`;
     const domain = normalizeDomain(row.source_domain);
     if (blockedDomains.has(domain)) continue;
-    if (isHomepageLikeUrl(row.article_url)) continue;
     const isAudioTagged =
       String(row.category || "").toLowerCase() === "audio" ||
       /voice clone|audio deepfake|synthetic voice/i.test(String(row.category_label || ""));
@@ -158,15 +170,16 @@ function dedupeAndFilter(rows) {
     const isGenericGoogleThumb =
       isGoogleDomain(row.source_domain) &&
       (/lh3\.googleusercontent\.com/i.test(rawImage) || /lh3\.googleusercontent\.com%2f/i.test(rawImage));
+    const isBadThumb = isLowQualityThumb(rawImage) || isGenericGoogleThumb;
 
     const next = {
       ...row,
       category: classifyCategory(row),
       record_type: deriveRecordType(row),
-      image_url: isGenericGoogleThumb ? "" : toProxyUrl(row.image_url),
-      image_type: isGenericGoogleThumb ? "illustrative" : row.image_type,
-      rights_status: isGenericGoogleThumb ? "unknown" : row.rights_status,
-      usage_note: isGenericGoogleThumb ? "Google aggregator thumbnail omitted; no article-specific evidence image." : row.usage_note,
+      image_url: isBadThumb ? "" : toProxyUrl(row.image_url),
+      image_type: isBadThumb ? "illustrative" : row.image_type,
+      rights_status: isBadThumb ? "unknown" : row.rights_status,
+      usage_note: isBadThumb ? "No article-specific evidence image; showing headline-only card." : row.usage_note,
     };
 
     const incidentKey = String(row.incident_key || "").trim();
@@ -196,18 +209,7 @@ function dedupeAndFilter(rows) {
     finalByTitle.set(key, prev ? pickPreferred(prev, item) : item);
   }
 
-  const finalByStory = new Map();
-  for (const item of finalByTitle.values()) {
-    const key = storyFingerprint(item);
-    if (!key) {
-      finalByStory.set(`id:${item.id}`, item);
-      continue;
-    }
-    const prev = finalByStory.get(key);
-    finalByStory.set(key, prev ? pickPreferred(prev, item) : item);
-  }
-
-  return Array.from(finalByStory.values())
+  return Array.from(finalByTitle.values())
     .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
     .slice(0, 200);
 }
@@ -258,7 +260,7 @@ function rebalanceSources(rows, limit) {
   const items = Array.isArray(rows) ? rows : [];
   if (!items.length) return [];
 
-  const maxGoogleShare = Math.min(4, Math.max(1, Math.floor(limit * 0.1)));
+  const maxGoogleShare = Math.max(8, Math.floor(limit * 0.35));
   const minNonGoogleTarget = Math.min(limit, Math.max(10, Math.floor(limit * 0.8)));
   const maxPerDomain = Math.max(2, Math.floor(limit * 0.2));
   const maxFactcheckShare = Math.max(6, Math.floor(limit * 0.35));
@@ -277,13 +279,15 @@ function rebalanceSources(rows, limit) {
     return !hasImage && confidence < 0.78;
   };
 
-  const canTake = (row) => {
+  const canTake = (row, opts = {}) => {
+    const relaxGoogle = Boolean(opts.relaxGoogle);
+    const relaxFactcheck = Boolean(opts.relaxFactcheck);
     const domain = normalizeDomain(row.source_domain) || "unknown";
     const sourceType = String(row.source_type || "").toLowerCase();
     const currentDomainCount = domainCounts.get(domain) || 0;
     if (currentDomainCount >= maxPerDomain) return false;
-    if (isGoogleDomain(domain) && googleCount >= maxGoogleShare) return false;
-    if (sourceType === "factcheck" && factcheckCount >= maxFactcheckShare) return false;
+    if (!relaxGoogle && isGoogleDomain(domain) && googleCount >= maxGoogleShare) return false;
+    if (!relaxFactcheck && sourceType === "factcheck" && factcheckCount >= maxFactcheckShare) return false;
     return true;
   };
 
@@ -337,18 +341,16 @@ function rebalanceSources(rows, limit) {
     }
   }
 
-  // Final hard clamp: never exceed Google cap in the returned set.
-  const out = [];
-  let finalGoogleCount = 0;
-  for (const row of selected) {
-    if (out.length >= limit) break;
-    if (isGoogleDomain(row.source_domain)) {
-      if (finalGoogleCount >= maxGoogleShare) continue;
-      finalGoogleCount += 1;
+  // Pass 3: if still under-filled, relax source-mix caps to avoid tiny galleries.
+  if (selected.length < limit) {
+    for (const row of items) {
+      if (selected.length >= limit) break;
+      if (selected.find((x) => x.id === row.id)) continue;
+      if (canTake(row, { relaxGoogle: true, relaxFactcheck: true })) take(row);
     }
-    out.push(row);
   }
-  return out.slice(0, limit);
+
+  return selected.slice(0, limit);
 }
 
 module.exports = async (req, res) => {
