@@ -782,12 +782,24 @@ function generatedFallbackImage(title) {
   return `https://image.pollinations.ai/prompt/${prompt}?width=800&height=600&nologo=true`;
 }
 
+function secondaryFallbackImage(title) {
+  const seed = encodeURIComponent(String(title || 'deepfake-incident').toLowerCase().replace(/\s+/g, '-').slice(0, 64));
+  return `https://picsum.photos/seed/${seed}/800/600`;
+}
+
 function handleImageError(imgEl) {
   if (!imgEl || !imgEl.parentNode) return;
   if (imgEl.dataset.retried !== '1') {
     imgEl.dataset.retried = '1';
     const title = imgEl.getAttribute('data-fallback-title') || '';
     imgEl.src = generatedFallbackImage(title);
+    imgEl.dataset.imageOrigin = 'generated';
+    return;
+  }
+  if (imgEl.dataset.retriedSecondary !== '1') {
+    imgEl.dataset.retriedSecondary = '1';
+    const title = imgEl.getAttribute('data-fallback-title') || '';
+    imgEl.src = secondaryFallbackImage(title);
     imgEl.dataset.imageOrigin = 'generated';
     return;
   }
