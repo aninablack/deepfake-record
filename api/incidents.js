@@ -46,6 +46,18 @@ function storyFingerprint(row) {
   return unique.slice(0, 8).join(" ");
 }
 
+function topicKey(row) {
+  const cleaned = String(row.title || "")
+    .toLowerCase()
+    .replace(/\|.*$/g, " ")
+    .replace(/[\(\)\[\],:;'"`’“”!?]/g, " ")
+    .replace(/\b(ai|video|debunked|fact[\s-]?check|claims?|after|died|news|the|a|an|of|and|to|for|in|on|is)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const tokens = cleaned.split(" ").filter((w) => w.length >= 4).slice(0, 6);
+  return tokens.join(" ");
+}
+
 function canonicalUrl(url) {
   if (!url) return "";
   try {
@@ -74,7 +86,21 @@ function dedupeAndFilter(rows) {
   const byId = new Map();
   const blockedDomains = new Set(["bignewsnetwork.com", "haskellforall.com", "intouchweekly.com", "citizensvoice.com"]);
   const sourceRank = { factchecker: 3, major_outlet: 2, other: 1 };
+  const imageRelevanceScore = (row) => {
+    const title = String(row.title || "").toLowerCase();
+    const img = String(row.image_url || "").toLowerCase();
+    let score = 0;
+    if (!img) return score;
+    if (img.includes("pollinations")) score -= 2;
+    if (/(cafe|caf%C3%A9|coffee|netanyahu)/i.test(img) && /(cafe|caf\u00e9|netanyahu)/i.test(title)) score += 2;
+    if (/(road|mountain|landscape|beach)/i.test(img) && /(deepfake|debunked|netanyahu|cafe|caf\u00e9)/i.test(title)) score -= 1;
+    return score;
+  };
   const pickPreferred = (prev, next) => {
+    const prevImg = imageRelevanceScore(prev);
+    const nextImg = imageRelevanceScore(next);
+    if (nextImg !== prevImg) return nextImg > prevImg ? next : prev;
+
     const prevRank = sourceRank[String(prev.source_priority || "").toLowerCase()] || 0;
     const nextRank = sourceRank[String(next.source_priority || "").toLowerCase()] || 0;
     if (nextRank !== prevRank) return nextRank > prevRank ? next : prev;
@@ -134,7 +160,19 @@ function dedupeAndFilter(rows) {
     finalByStory.set(key, prev ? pickPreferred(prev, item) : item);
   }
 
-  return Array.from(finalByStory.values())
+  // Final collapse: same topic phrasing variants (e.g. "Is the ... café video ... | Debunked")
+  const finalByTopic = new Map();
+  for (const item of finalByStory.values()) {
+    const key = topicKey(item);
+    if (!key) {
+      finalByTopic.set(`id:${item.id}`, item);
+      continue;
+    }
+    const prev = finalByTopic.get(key);
+    finalByTopic.set(key, prev ? pickPreferred(prev, item) : item);
+  }
+
+  return Array.from(finalByTopic.values())
     .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
     .slice(0, 200);
 }
