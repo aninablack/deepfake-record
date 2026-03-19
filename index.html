@@ -811,10 +811,8 @@ function canonicalUrl(url) {
 }
 
 function dedupeCards(cards) {
-  const seenUrl = new Set();
-  const seenTitle = new Set();
-  const seenImage = new Set();
-  const unique = [];
+  const typeRank = { audio: 6, fraud: 5, political: 4, celeb: 3, culture: 2, synthetic: 1 };
+  const byKey = new Map();
   for (const c of cards) {
     const u = canonicalUrl(c.articleUrl || '');
     const t = String(c.title || '')
@@ -822,17 +820,21 @@ function dedupeCards(cards) {
       .replace(/[^a-z0-9\s]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
-    const tShort = t.split(' ').slice(0, 12).join(' ');
+    const tShort = t.split(' ').slice(0, 16).join(' ');
     const img = canonicalUrl(c.imageUrl || '');
-    if (u && seenUrl.has(u)) continue;
-    if (tShort && seenTitle.has(tShort)) continue;
-    if (img && seenImage.has(img)) continue;
-    if (u) seenUrl.add(u);
-    if (tShort) seenTitle.add(tShort);
-    if (img) seenImage.add(img);
-    unique.push(c);
+    const source = String(c.source || c.platform || '').toLowerCase().replace(/^www\./, '');
+    const key = u || `${source}|${tShort}` || img;
+    if (!key) continue;
+    const prev = byKey.get(key);
+    if (!prev) {
+      byKey.set(key, c);
+      continue;
+    }
+    const prevScore = (typeRank[prev.type] || 0) + (Number(prev.confidence) || 0);
+    const nextScore = (typeRank[c.type] || 0) + (Number(c.confidence) || 0);
+    if (nextScore > prevScore) byKey.set(key, c);
   }
-  return unique;
+  return Array.from(byKey.values());
 }
 
 function isDeepfakeCard(card) {
@@ -905,6 +907,9 @@ function renderTicker() {
 function mapIncident(incident, index) {
   const headline = `${incident.title || ''} ${incident.summary || ''}`.toLowerCase();
   let type = incident.category || 'synthetic';
+  if (/(voice clone|cloned voice|ai voice|synthetic voice|voice deepfake|audio deepfake)/.test(headline)) {
+    type = 'audio';
+  }
   if (
     type === 'synthetic' &&
     /(propaganda|government|minister|election|campaign|parliament|senate|president|politic|state media|lawmaker|council|councillor)/.test(headline)
