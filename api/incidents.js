@@ -34,12 +34,14 @@ function canonicalUrl(url) {
 
 function classifyCategory(row) {
   const hay = `${row.title || ""} ${row.summary || ""}`.toLowerCase();
-  if (
-    /(voice clone|cloned voice|ai voice|voice deepfake|audio deepfake|deepfake audio|vocal clone|synthetic voice|soundalike|mimic(?:ked|ry)? voice)/.test(
+  const hasAudioFakeSignal =
+    /(voice clone|cloned voice|vocal clone|synthetic voice|voice deepfake|audio deepfake|deepfake audio|fake audio|ai impersonation|soundalike|mimic(?:ked|ry)? voice)/.test(
       hay
-    ) ||
+    );
+  if (
+    hasAudioFakeSignal ||
     (/(song|music|track|record label|artist|singer|beyonc|sony music)/.test(hay) &&
-      /(deepfake|deep fake|ai[- ]generated|synthetic|fake audio|voice)/.test(hay))
+      /(deepfake|deep fake|voice clone|synthetic voice|audio deepfake|fake audio|ai impersonation|soundalike|mimic(?:ked|ry)? voice)/.test(hay))
   ) {
     return "audio";
   }
@@ -54,8 +56,11 @@ function dedupeAndFilter(rows) {
   const byUrl = new Map();
   const byTitle = new Map();
   const result = [];
+  const blockedDomains = new Set(["bignewsnetwork.com", "haskellforall.com", "intouchweekly.com", "citizensvoice.com"]);
   for (const row of rows || []) {
     const hay = `${row.title || ""} ${row.summary || ""} ${row.article_url || ""}`;
+    const domain = String(row.source_domain || "").toLowerCase();
+    if (blockedDomains.has(domain)) continue;
     const isAudioTagged =
       String(row.category || "").toLowerCase() === "audio" ||
       /voice clone|audio deepfake|synthetic voice/i.test(String(row.category_label || ""));
