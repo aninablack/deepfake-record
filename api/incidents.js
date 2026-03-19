@@ -121,9 +121,10 @@ function dedupeAndFilter(rows) {
     if (!hasDeepfakeSignal(hay) && !isAudioTagged) continue;
     const urlKey = canonicalUrl(row.article_url);
     const titleKey = normalizeTitle(row.title);
+    const rawImage = String(row.image_url || "").toLowerCase();
     const isGenericGoogleThumb =
       String(row.source_domain || "").toLowerCase() === "news.google.com" &&
-      /lh3\.googleusercontent\.com/i.test(String(row.image_url || ""));
+      (/lh3\.googleusercontent\.com/i.test(rawImage) || /lh3\.googleusercontent\.com%2f/i.test(rawImage));
 
     const next = {
       ...row,
@@ -217,7 +218,7 @@ function rebalanceSources(rows, limit) {
   const items = Array.isArray(rows) ? rows : [];
   if (!items.length) return [];
 
-  const maxGoogleShare = Math.max(2, Math.floor(limit * 0.1));
+  const maxGoogleShare = Math.min(2, Math.max(1, Math.floor(limit * 0.05)));
   const maxPerDomain = Math.max(2, Math.floor(limit * 0.2));
   const maxFactcheckShare = Math.max(6, Math.floor(limit * 0.35));
 
