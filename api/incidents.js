@@ -181,31 +181,46 @@ function rebalanceSources(rows, limit) {
   const items = Array.isArray(rows) ? rows : [];
   if (!items.length) return [];
 
-  const maxGoogleShare = Math.max(4, Math.floor(limit * 0.2));
+  const maxGoogleShare = Math.max(2, Math.floor(limit * 0.1));
   const maxPerDomain = Math.max(2, Math.floor(limit * 0.2));
+  const maxFactcheckShare = Math.max(6, Math.floor(limit * 0.35));
 
   const selected = [];
   const domainCounts = new Map();
   let googleCount = 0;
+  let factcheckCount = 0;
 
   const canTake = (row) => {
     const domain = String(row.source_domain || "").toLowerCase() || "unknown";
+    const sourceType = String(row.source_type || "").toLowerCase();
     const currentDomainCount = domainCounts.get(domain) || 0;
     if (currentDomainCount >= maxPerDomain) return false;
     if (domain === "news.google.com" && googleCount >= maxGoogleShare) return false;
+    if (sourceType === "factcheck" && factcheckCount >= maxFactcheckShare) return false;
     return true;
   };
 
   const take = (row) => {
     const domain = String(row.source_domain || "").toLowerCase() || "unknown";
+    const sourceType = String(row.source_type || "").toLowerCase();
     selected.push(row);
     domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1);
     if (domain === "news.google.com") googleCount += 1;
+    if (sourceType === "factcheck") factcheckCount += 1;
   };
 
-  // Pass 1: prioritize non-Google items first (helps GDELT + direct outlets surface).
+  // Pass 1: prioritize non-Google and non-factcheck items first.
   const prioritized = [
-    ...items.filter((r) => String(r.source_domain || "").toLowerCase() !== "news.google.com"),
+    ...items.filter((r) => {
+      const d = String(r.source_domain || "").toLowerCase();
+      const t = String(r.source_type || "").toLowerCase();
+      return d !== "news.google.com" && t !== "factcheck";
+    }),
+    ...items.filter((r) => {
+      const d = String(r.source_domain || "").toLowerCase();
+      const t = String(r.source_type || "").toLowerCase();
+      return d !== "news.google.com" && t === "factcheck";
+    }),
     ...items.filter((r) => String(r.source_domain || "").toLowerCase() === "news.google.com"),
   ];
   for (const row of prioritized) {
@@ -228,13 +243,14 @@ function rebalanceSources(rows, limit) {
 module.exports = async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 80), 200);
+    const poolLimit = Math.min(Math.max(limit * 8, 300), 1200);
     const client = getAnonClient();
 
     const { data, error } = await client
       .from("incidents")
       .select("id,source_id,title,summary,category,category_label,confidence,platform,source_domain,source_type,claim_url,reported_on,article_url,image_url,image_type,rights_status,usage_note,published_at,status,incident_key,source_priority")
       .order("published_at", { ascending: false })
-      .limit(limit);
+      .limit(poolLimit);
 
     if (error) throw error;
 
