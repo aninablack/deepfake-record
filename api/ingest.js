@@ -15,7 +15,7 @@ const {
   buildIncidentKey,
   isIncidentCandidate,
 } = require('../lib/classify');
-const { resolveImageUrl } = require('../lib/placeholders');
+const { resolveImage } = require('../lib/placeholders');
 const { scoreWithProviders, blendConfidence } = require('../lib/detectors');
 
 async function fetchGdelt() {
@@ -364,7 +364,8 @@ async function normalize(article, index) {
   }
   const sourceDomain = article.domain || 'unknown';
   const articleUrl = article.url || null;
-  const imageUrl = resolveImageUrl(article);
+  const image = await resolveImage(article);
+  const imageUrl = image.url;
   const publishedAt = parseSeenDate(article.seendate);
   const sourceType = article.source_type || 'news';
   const claimUrl = article.claim_url || null;
@@ -394,9 +395,9 @@ async function normalize(article, index) {
     reported_on: reportedOn,
     article_url: articleUrl,
     image_url: imageUrl,
-    image_type: article.socialimage ? 'documented' : 'illustrative',
-    rights_status: article.socialimage ? 'link_only' : 'unknown',
-    usage_note: article.socialimage ? 'Editorial thumbnail from reporting source.' : 'Illustrative synthetic placeholder; not evidence image.',
+    image_type: image.documented ? 'documented' : 'illustrative',
+    rights_status: image.documented ? 'link_only' : 'unknown',
+    usage_note: image.documented ? 'Editorial thumbnail from reporting source.' : 'Illustrative synthetic placeholder; not evidence image.',
     country: article.sourcecountry || null,
     language: article.language || null,
     published_at: publishedAt,
@@ -477,12 +478,13 @@ module.exports = async (_req, res) => {
     const mergedRaw = [...raw, ...rssRaw, ...redditRaw];
     const normalized = await Promise.all(mergedRaw.map((item, idx) => normalize(item, idx)));
     const incidents = dedupeIncidents(normalized.filter(Boolean));
-    const contextArticles = rawContext.map((article) => {
+    const contextArticles = await Promise.all(rawContext.map(async (article) => {
       const title = (article.title || '').trim();
       const sourceDomain = article.domain || 'unknown';
       const articleUrl = article.url || null;
       const publishedAt = parseSeenDate(article.seendate);
       const topic = classifyContextTopic(`${title} ${sourceDomain}`);
+      const image = await resolveImage(article);
       return {
         source_id: articleUrl || `${sourceDomain}:${title}`,
         title: title || 'Untitled context article',
@@ -492,10 +494,10 @@ module.exports = async (_req, res) => {
         topic_label: topic,
         source_domain: sourceDomain,
         article_url: articleUrl,
-        image_url: resolveImageUrl(article),
+        image_url: image.url,
         published_at: publishedAt,
       };
-    });
+    }));
     const result = await upsertIncidents(client, incidents);
     const contextResult = await upsertContextArticles(client, contextArticles);
     await logIngestRun(client, mergedRaw.length, result.inserted);

@@ -181,7 +181,7 @@ function rebalanceSources(rows, limit) {
   const items = Array.isArray(rows) ? rows : [];
   if (!items.length) return [];
 
-  const maxGoogleShare = Math.max(8, Math.floor(limit * 0.4));
+  const maxGoogleShare = Math.max(4, Math.floor(limit * 0.2));
   const maxPerDomain = Math.max(2, Math.floor(limit * 0.2));
 
   const selected = [];
@@ -203,8 +203,12 @@ function rebalanceSources(rows, limit) {
     if (domain === "news.google.com") googleCount += 1;
   };
 
-  // Pass 1: take best items respecting caps.
-  for (const row of items) {
+  // Pass 1: prioritize non-Google items first (helps GDELT + direct outlets surface).
+  const prioritized = [
+    ...items.filter((r) => String(r.source_domain || "").toLowerCase() !== "news.google.com"),
+    ...items.filter((r) => String(r.source_domain || "").toLowerCase() === "news.google.com"),
+  ];
+  for (const row of prioritized) {
     if (selected.length >= limit) break;
     if (canTake(row)) take(row);
   }
