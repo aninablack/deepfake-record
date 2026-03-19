@@ -44,7 +44,7 @@ function shouldExcludeDomain(domain) {
 
 function isExcludedByTitle(title) {
   const t = String(title || '').toLowerCase();
-  return /(fortnite|gaming skin|battle pass)/.test(t);
+  return /(fortnite|gaming skin|battle pass|haskell for all|agentic coding spec)/.test(t);
 }
 
 function decodeXmlEntities(text) {
