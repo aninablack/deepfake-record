@@ -55,7 +55,7 @@ function classifyCategory(row) {
 function dedupeAndFilter(rows) {
   const byUrl = new Map();
   const byTitle = new Map();
-  const result = [];
+  const byId = new Map();
   const blockedDomains = new Set(["bignewsnetwork.com", "haskellforall.com", "intouchweekly.com", "citizensvoice.com"]);
   for (const row of rows || []) {
     const hay = `${row.title || ""} ${row.summary || ""} ${row.article_url || ""}`;
@@ -68,12 +68,13 @@ function dedupeAndFilter(rows) {
     const urlKey = canonicalUrl(row.article_url);
     const titleKey = normalizeTitle(row.title);
     const next = { ...row, category: classifyCategory(row) };
+
+    // Always attempt both URL and title dedupe so near-identical Google News cards collapse.
     if (urlKey) {
       const prev = byUrl.get(urlKey);
       if (!prev || new Date(next.published_at || 0).getTime() > new Date(prev.published_at || 0).getTime()) {
         byUrl.set(urlKey, next);
       }
-      continue;
     }
     if (titleKey) {
       const prev = byTitle.get(titleKey);
@@ -82,8 +83,11 @@ function dedupeAndFilter(rows) {
       }
     }
   }
-  result.push(...byUrl.values(), ...byTitle.values());
-  return result.slice(0, 200);
+  for (const item of byUrl.values()) byId.set(item.id, item);
+  for (const item of byTitle.values()) byId.set(item.id, item);
+  return Array.from(byId.values())
+    .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+    .slice(0, 200);
 }
 
 module.exports = async (req, res) => {
