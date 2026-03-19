@@ -156,12 +156,29 @@ async function fetchRedditArticles() {
   const subs = splitCsv(config.redditSubreddits);
   const records = [];
   for (const sub of subs) {
-    const url = `https://www.reddit.com/r/${encodeURIComponent(sub)}/new.json?limit=${config.redditMaxItemsPerSubreddit}`;
+    const searchUrl = `https://www.reddit.com/r/${encodeURIComponent(sub)}/search.json?restrict_sr=1&sort=new&limit=${config.redditMaxItemsPerSubreddit}&q=${encodeURIComponent(config.redditQuery)}`;
+    const newUrl = `https://www.reddit.com/r/${encodeURIComponent(sub)}/new.json?limit=${config.redditMaxItemsPerSubreddit}`;
     try {
-      const res = await fetch(url, { headers: { 'user-agent': 'deepfake-record/1.0' } });
-      if (!res.ok) continue;
-      const json = await res.json();
-      const children = json?.data?.children || [];
+      let children = [];
+      const searchRes = await fetch(searchUrl, { headers: { 'user-agent': 'deepfake-record/1.0 (+contact: deepfake-record)' } });
+      if (searchRes.ok) {
+        const searchJson = await searchRes.json();
+        children = searchJson?.data?.children || [];
+      }
+      if (children.length === 0) {
+        const newRes = await fetch(newUrl, { headers: { 'user-agent': 'deepfake-record/1.0 (+contact: deepfake-record)' } });
+        if (!newRes.ok) continue;
+        const newJson = await newRes.json();
+        const raw = newJson?.data?.children || [];
+        const q = String(config.redditQuery || '').toLowerCase();
+        const needles = q.replace(/[()"]/g, '').split(/\s+or\s+/i).map((s) => s.trim()).filter(Boolean);
+        children = raw.filter((it) => {
+          const d = it?.data || {};
+          const hay = `${d.title || ''} ${d.selftext || ''} ${d.url || ''}`.toLowerCase();
+          return needles.some((n) => hay.includes(n.toLowerCase()));
+        });
+      }
+
       for (const item of children) {
         const post = item?.data || {};
         const articleUrl = post.url_overridden_by_dest || post.url || `https://www.reddit.com${post.permalink || ''}`;
