@@ -85,12 +85,17 @@ function dedupeIncidents(items) {
   const seenTitle = new Set();
   for (const item of items) {
     const canonicalUrl = canonicalizeUrl(item.article_url);
-    const cleanTitle = String(item.title || '').trim().toLowerCase();
-    const keyTitle = `${cleanTitle}|${item.source_domain || ''}`;
+    const cleanTitle = String(item.title || '')
+      .toLowerCase()
+      .replace(/[\|\-:]\s*(bbc|cnn|reuters|ap|associated press|news|live updates?).*$/i, '')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const keyTitle = cleanTitle.split(' ').slice(0, 14).join(' ');
     if (canonicalUrl && seenUrl.has(canonicalUrl)) continue;
-    if (!canonicalUrl && cleanTitle && seenTitle.has(keyTitle)) continue;
+    if (keyTitle && seenTitle.has(keyTitle)) continue;
     if (canonicalUrl) seenUrl.add(canonicalUrl);
-    if (cleanTitle) seenTitle.add(keyTitle);
+    if (keyTitle) seenTitle.add(keyTitle);
     unique.push({ ...item, article_url: canonicalUrl || item.article_url });
   }
   return unique;

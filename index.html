@@ -817,13 +817,13 @@ function dedupeCards(cards) {
     const u = canonicalUrl(c.articleUrl || '');
     const t = String(c.title || '')
       .toLowerCase()
+      .replace(/[\|\-:]\s*(bbc|cnn|reuters|ap|associated press|news|live updates?).*$/i, '')
       .replace(/[^a-z0-9\s]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
     const tShort = t.split(' ').slice(0, 16).join(' ');
     const img = canonicalUrl(c.imageUrl || '');
-    const source = String(c.source || c.platform || '').toLowerCase().replace(/^www\./, '');
-    const key = u || `${source}|${tShort}` || img;
+    const key = u || tShort || img;
     if (!key) continue;
     const prev = byKey.get(key);
     if (!prev) {
@@ -906,8 +906,14 @@ function renderTicker() {
 function mapIncident(incident, index) {
   const headline = `${incident.title || ''} ${incident.summary || ''}`.toLowerCase();
   let type = incident.category || 'synthetic';
-  if (/(voice clone|cloned voice|ai voice|synthetic voice|voice deepfake|audio deepfake)/.test(headline)) {
+  if (/(voice clone|cloned voice|ai voice|synthetic voice|voice deepfake|audio deepfake|deepfake audio)/.test(headline)) {
     type = 'audio';
+  } else if (/(scam|fraud|impersonation|wire transfer|extortion|phishing|bank)/.test(headline)) {
+    type = 'fraud';
+  } else if (/(election|government|minister|campaign|parliament|senate|president|council|councillor|propaganda|state media|lawmaker|politician)/.test(headline)) {
+    type = 'political';
+  } else if (/(artist|writers?|music|film|cinema|entertainment|creative|copyright)/.test(headline)) {
+    type = 'culture';
   }
   if (
     type === 'synthetic' &&
