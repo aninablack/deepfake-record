@@ -32,6 +32,20 @@ function normalizeTitle(title) {
     .join(" ");
 }
 
+function storyFingerprint(row) {
+  const text = `${row.title || ""} ${row.summary || ""}`.toLowerCase();
+  const tokens = text
+    .replace(/[\(\)\[\]\|,:;'"`’“”!?]/g, " ")
+    .replace(/\b(debunked|fact[\s-]?check|aol\.co\.uk|the independent|bbc|news|video|ai|deepfake|deepfakes)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter((w) => w.length >= 4)
+    .filter((w) => !["with", "from", "that", "this", "over", "after", "their", "into", "about", "global", "organised", "organised"].includes(w));
+  const unique = Array.from(new Set(tokens)).sort();
+  return unique.slice(0, 8).join(" ");
+}
+
 function canonicalUrl(url) {
   if (!url) return "";
   try {
@@ -108,7 +122,19 @@ function dedupeAndFilter(rows) {
     const prev = finalByTitle.get(key);
     finalByTitle.set(key, prev ? pickPreferred(prev, item) : item);
   }
-  return Array.from(finalByTitle.values())
+
+  const finalByStory = new Map();
+  for (const item of finalByTitle.values()) {
+    const key = storyFingerprint(item);
+    if (!key) {
+      finalByStory.set(`id:${item.id}`, item);
+      continue;
+    }
+    const prev = finalByStory.get(key);
+    finalByStory.set(key, prev ? pickPreferred(prev, item) : item);
+  }
+
+  return Array.from(finalByStory.values())
     .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
     .slice(0, 200);
 }
