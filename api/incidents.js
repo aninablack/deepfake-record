@@ -234,13 +234,22 @@ function rebalanceSources(rows, limit) {
   if (!items.length) return [];
 
   const maxGoogleShare = Math.min(2, Math.max(1, Math.floor(limit * 0.05)));
+  const minNonGoogleTarget = Math.min(limit, Math.max(10, Math.floor(limit * 0.8)));
   const maxPerDomain = Math.max(2, Math.floor(limit * 0.2));
   const maxFactcheckShare = Math.max(6, Math.floor(limit * 0.35));
 
   const selected = [];
   const domainCounts = new Map();
   let googleCount = 0;
+  let nonGoogleCount = 0;
   let factcheckCount = 0;
+
+  const isLowQualityGoogleRow = (row) => {
+    if (!isGoogleDomain(row.source_domain)) return false;
+    const hasImage = !!String(row.image_url || "").trim();
+    const confidence = Number(row.confidence) || 0;
+    return !hasImage && confidence < 0.78;
+  };
 
   const canTake = (row) => {
     const domain = normalizeDomain(row.source_domain) || "unknown";
@@ -258,31 +267,43 @@ function rebalanceSources(rows, limit) {
     selected.push(row);
     domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1);
     if (isGoogleDomain(domain)) googleCount += 1;
+    else nonGoogleCount += 1;
     if (sourceType === "factcheck") factcheckCount += 1;
   };
 
+  const nonGoogleItems = items.filter((r) => !isGoogleDomain(r.source_domain));
+  const googleItems = items.filter((r) => isGoogleDomain(r.source_domain) && !isLowQualityGoogleRow(r));
+
+  // Pass 0: enforce non-Google minimum first when available.
+  for (const row of nonGoogleItems) {
+    if (selected.length >= limit) break;
+    if (nonGoogleCount >= minNonGoogleTarget) break;
+    if (canTake(row)) take(row);
+  }
+
   // Pass 1: prioritize non-Google and non-factcheck items first.
   const prioritized = [
-    ...items.filter((r) => {
+    ...nonGoogleItems.filter((r) => {
       const d = String(r.source_domain || "").toLowerCase();
       const t = String(r.source_type || "").toLowerCase();
       return !isGoogleDomain(d) && t !== "factcheck";
     }),
-    ...items.filter((r) => {
+    ...nonGoogleItems.filter((r) => {
       const d = String(r.source_domain || "").toLowerCase();
       const t = String(r.source_type || "").toLowerCase();
       return !isGoogleDomain(d) && t === "factcheck";
     }),
-    ...items.filter((r) => isGoogleDomain(r.source_domain)),
+    ...googleItems,
   ];
   for (const row of prioritized) {
     if (selected.length >= limit) break;
+    if (selected.find((x) => x.id === row.id)) continue;
     if (canTake(row)) take(row);
   }
 
   // Pass 2: fill remaining slots with anything recent if we still have room.
   if (selected.length < limit) {
-    for (const row of items) {
+    for (const row of [...nonGoogleItems, ...googleItems]) {
       if (selected.length >= limit) break;
       if (selected.find((x) => x.id === row.id)) continue;
       if (canTake(row)) take(row);

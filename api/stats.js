@@ -16,21 +16,32 @@ function prettyPlatform(value) {
   return String(value).replace(/^www\./i, "");
 }
 
+function normalizeDomain(value) {
+  return String(value || "").trim().toLowerCase().replace(/^www\./, "");
+}
+
+function isGoogleDomain(value) {
+  const d = normalizeDomain(value);
+  return d === "news.google.com" || d.endsWith(".news.google.com") || d.includes("google.com");
+}
+
 module.exports = async (_req, res) => {
   try {
     const client = getAnonClient();
 
-    const [{ count, error: countError }, { data: latestData, error: latestError }, { data: topPlatformData, error: topPlatformError }, { count: verifiedCount, error: verifiedCountError }, { count: archivedEventsCount, error: archivedEventsError }] = await Promise.all([
+    const [{ count, error: countError }, { data: latestData, error: latestError }, { data: topPlatformData, error: topPlatformError }, { count: verifiedCount, error: verifiedCountError }, { count: archivedEventsCount, error: archivedEventsError }, { data: shownPool, error: shownPoolError }] = await Promise.all([
       client.from("incidents").select("id", { count: "exact", head: true }),
       client.from("incidents").select("published_at").order("published_at", { ascending: false }).limit(1),
       client.rpc("top_platform"),
       client.from("historical_verified_incidents").select("id", { count: "exact", head: true }),
       client.from("incident_events").select("id", { count: "exact", head: true }),
+      client.from("incidents").select("platform,source_domain,published_at").order("published_at", { ascending: false }).limit(200),
     ]);
 
     if (countError) throw countError;
     if (latestError) throw latestError;
     if (topPlatformError) throw topPlatformError;
+    if (shownPoolError) throw shownPoolError;
     if (verifiedCountError) {
       // Keep stats endpoint alive even before archive table migration runs.
       // verified_total will simply remain 0 until the table exists.
@@ -44,6 +55,14 @@ module.exports = async (_req, res) => {
 
     const latestIso = latestData && latestData[0] ? latestData[0].published_at : null;
     const latestMinutes = latestIso ? Math.max(1, Math.floor((Date.now() - new Date(latestIso).getTime()) / 60000)) : null;
+    const shownRows = Array.isArray(shownPool) ? shownPool.slice(0, 40) : [];
+    const shownPlatformCounts = new Map();
+    for (const row of shownRows) {
+      if (isGoogleDomain(row.source_domain)) continue;
+      const key = prettyPlatform(row.platform || row.source_domain || "Unknown");
+      shownPlatformCounts.set(key, (shownPlatformCounts.get(key) || 0) + 1);
+    }
+    const shownTop = Array.from(shownPlatformCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
 
     res.status(200).json({
       ok: true,
@@ -54,8 +73,10 @@ module.exports = async (_req, res) => {
       scanned_total: scannedTotal,
       latest_minutes_ago: latestMinutes,
       top_platform: prettyPlatform(topPlatformData && topPlatformData[0] ? topPlatformData[0].platform : "Unknown"),
+      top_platform_all: prettyPlatform(topPlatformData && topPlatformData[0] ? topPlatformData[0].platform : "Unknown"),
+      top_platform_shown: shownTop || prettyPlatform(topPlatformData && topPlatformData[0] ? topPlatformData[0].platform : "Unknown"),
     });
   } catch (error) {
-    res.status(500).json({ ok: false, error: error.message, total: 0, live_total: 0, verified_total: 0, archived_total: 0, scanned_total: 0, latest_minutes_ago: null, top_platform: "Unknown" });
+    res.status(500).json({ ok: false, error: error.message, total: 0, live_total: 0, verified_total: 0, archived_total: 0, scanned_total: 0, latest_minutes_ago: null, top_platform: "Unknown", top_platform_all: "Unknown", top_platform_shown: "Unknown" });
   }
 };
