@@ -570,11 +570,6 @@
     border-color: rgba(29, 78, 216, 0.24);
   }
 
-  .df-visual-redacted {
-    background: rgba(113, 113, 122, 0.16);
-    color: #3f3f46;
-    border-color: rgba(63, 63, 70, 0.26);
-  }
   .df-visual-category-political {
     background: rgba(90, 62, 40, 0.85);
     color: #fff;
@@ -672,7 +667,7 @@
     <div class="df-legend-text">
       <strong>Documented</strong> = image published in reporting/research about the incident. &nbsp;
       <strong>Illustrative</strong> = synthetic placeholder used for context and design, not evidence. &nbsp;
-      <strong>Redacted</strong> = visual withheld for safety, rights, or harm-reduction.
+      <strong>Illustrative</strong> visuals are placeholders, not evidence.
     </div>
   </div>
 
@@ -967,12 +962,10 @@ function mapIncident(incident, index) {
   const imageTypeMap = {
     documented: 'Documented incident image',
     illustrative: 'Illustrative synthetic image',
-    redacted: 'Redacted visual',
   };
   const imageTagMap = {
     documented: { tag: 'Documented', klass: 'df-visual-documented' },
     illustrative: { tag: 'Illustrative', klass: 'df-visual-illustrative' },
-    redacted: { tag: 'Redacted', klass: 'df-visual-redacted' },
   };
   const categoryTagClassMap = {
     political: 'df-visual-category-political',
