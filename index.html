@@ -1072,8 +1072,10 @@ async function loadLiveData() {
 function updateHeroCounters() {
   const activeCards = getActiveCards();
   const visibleCards = filter === 'all' ? activeCards : activeCards.filter((c) => c.type === filter);
-  const value = visibleCards.length;
-  const label = mode === 'verified' ? 'Cards shown (verified)' : 'Cards shown (live)';
+  const usingVerified = mode === 'verified' && verifiedTotal > 0;
+  const totalValue = usingVerified ? verifiedTotal : liveTotal;
+  const value = totalValue;
+  const label = `${usingVerified ? 'Verified incidents logged' : 'Incidents logged'} · ${visibleCards.length.toLocaleString()} shown`;
   const counterEl = document.getElementById('counter');
   const labelEl = document.getElementById('counterLabel');
   if (counterEl) counterEl.textContent = (value || 0).toLocaleString();
