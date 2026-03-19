@@ -865,7 +865,14 @@ function renderTicker() {
 }
 
 function mapIncident(incident, index) {
-  const type = incident.category || 'synthetic';
+  const headline = `${incident.title || ''} ${incident.summary || ''}`.toLowerCase();
+  let type = incident.category || 'synthetic';
+  if (
+    type === 'synthetic' &&
+    /(propaganda|government|minister|election|campaign|parliament|senate|president|politic|state media|lawmaker|council|councillor)/.test(headline)
+  ) {
+    type = 'political';
+  }
   const label = typeToLabel[type] || 'Synthetic image';
   const imageTypeMap = {
     documented: 'Documented incident image',
