@@ -734,11 +734,11 @@ function renderGallery() {
         <div class="df-card-type">${safeText(c.label)}</div>
         <div class="df-card-title">${safeText(c.title)}</div>
         <div class="df-card-platform">${safeText(c.platform)}</div>
-        <div class="df-card-line">Source: ${safeText(c.source || 'GDELT feed')}</div>
-        <div class="df-card-line">Source type: ${safeText(c.sourceType || 'news')}</div>
-        <div class="df-card-line">Reported by: ${safeText(c.source || 'GDELT feed')}</div>
+        <div class="df-card-line">Source feed: ${safeText(c.sourceFeedLabel || 'GDELT')}</div>
+        <div class="df-card-line">Publisher: ${safeText(c.source || 'Unknown')}</div>
         ${c.reportedOn ? `<div class="df-card-line">Reported on: ${safeText(c.reportedOn)}</div>` : ''}
         ${c.claimUrl ? `<div class="df-card-line">Original claim URL: ${safeText(c.claimUrl)}</div>` : ''}
+        ${c.articleUrl ? `<div class="df-card-line">Article: ${safeText(c.articleUrl)}</div>` : ''}
         <div class="df-card-line">Detection confidence: ${Math.round((Number(c.confidence) || 0) * 100)}%</div>
         <div class="df-card-visual">Visual classification: ${safeText(c.imageLabel || 'Documented incident image')} · Rights: ${safeText(c.rightsLabel || 'Link-only')}</div>
         <div class="df-card-line">${safeText(c.usageNote || 'Status shown for editorial transparency.')}</div>
@@ -797,6 +797,12 @@ function mapIncident(incident, index) {
     confidence: incident.confidence || 0.5,
     source: incident.source_domain || 'GDELT feed',
     sourceType: incident.source_type || 'news',
+    sourceFeedLabel:
+      incident.source_type === 'social_report'
+        ? 'Reddit'
+        : incident.source_type === 'factcheck'
+          ? 'Fact-check RSS'
+          : 'GDELT / News RSS',
     claimUrl: incident.claim_url || '',
     reportedOn: incident.reported_on || '',
     imageLabel: imageTypeMap[incident.image_type] || 'Documented incident image',
