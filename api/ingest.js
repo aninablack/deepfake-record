@@ -346,12 +346,6 @@ async function normalize(article, index) {
   if (classified.type === 'celeb' && !isTitleDeepfakeSpecific(`${title} ${description}`)) {
     return null;
   }
-  // Backward-compatibility: some deployed databases still reject `culture`.
-  // Keep ingest resilient by downgrading culture to synthetic until migration is confirmed.
-  if (classified.type === 'culture') {
-    classified.type = 'synthetic';
-    classified.label = 'Synthetic image';
-  }
   // Emergency runtime override for production incidents_category_check mismatches.
   if (process.env.FORCE_CATEGORY_FALLBACK === '1' && classified.type === 'culture') {
     classified.type = 'synthetic';
