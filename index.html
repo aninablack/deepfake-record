@@ -575,6 +575,21 @@
     color: #3f3f46;
     border-color: rgba(63, 63, 70, 0.26);
   }
+  .df-visual-category-political {
+    background: rgba(90, 62, 40, 0.85);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  .df-visual-category-fraud {
+    background: rgba(122, 32, 32, 0.88);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+  .df-visual-category-entertainment {
+    background: rgba(74, 26, 96, 0.85);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.2);
+  }
 
   .b-pol { background: #f5f0ea; color: #5a3e28; }
   .b-fraud { background: #fce8e8; color: #7a2020; }
@@ -893,7 +908,7 @@ function renderGallery() {
     <div class="df-card" data-url="${safeText(c.articleUrl || '')}">
       <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">
         ${imageHtml(c.imageUrl, c.title)}
-        <div class="df-visual-tag ${safeText(c.imageTagClass || 'df-visual-documented')}">${safeText(c.imageTag || 'Documented')}</div>
+        <div class="df-visual-tag ${safeText(c.overlayTagClass || 'df-visual-category-entertainment')}">${safeText(c.overlayTag || c.label || 'Entertainment')}</div>
         ${c.isNew ? '<div class="df-new-tag">New</div>' : ''}
       </div>
       <div class="df-card-meta">
@@ -959,6 +974,11 @@ function mapIncident(incident, index) {
     illustrative: { tag: 'Illustrative', klass: 'df-visual-illustrative' },
     redacted: { tag: 'Redacted', klass: 'df-visual-redacted' },
   };
+  const categoryTagClassMap = {
+    political: 'df-visual-category-political',
+    fraud: 'df-visual-category-fraud',
+    entertainment: 'df-visual-category-entertainment',
+  };
   const rightsMap = {
     licensed: 'Licensed',
     public_reporting_use: 'Public-reporting use',
@@ -991,6 +1011,8 @@ function mapIncident(incident, index) {
     imageLabel: imageTypeMap[incident.image_type] || 'Documented incident image',
     imageTag: (imageTagMap[incident.image_type] || imageTagMap.documented).tag,
     imageTagClass: (imageTagMap[incident.image_type] || imageTagMap.documented).klass,
+    overlayTag: label,
+    overlayTagClass: categoryTagClassMap[type] || 'df-visual-category-entertainment',
     rightsLabel: rightsMap[incident.rights_status] || 'Unknown',
     usageNote: incident.usage_note || '',
     status: incident.status || 'reported_as_synthetic',
