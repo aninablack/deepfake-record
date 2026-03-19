@@ -323,7 +323,7 @@ function classifyContextTopic(text) {
   return 'Public Impact';
 }
 
-async function normalize(article, index) {
+async function normalize(client, article, index) {
   const title = (article.title || '').trim();
   const sourceType = article.source_type || 'news';
   const isFactcheck = sourceType === 'factcheck';
@@ -509,7 +509,7 @@ module.exports = async (_req, res) => {
     const rssRaw = await fetchRssArticles();
     const redditRaw = await fetchRedditArticles();
     const mergedRaw = [...raw, ...rssRaw, ...redditRaw];
-    const normalized = await Promise.all(mergedRaw.map((item, idx) => normalize(item, idx)));
+    const normalized = await Promise.all(mergedRaw.map((item, idx) => normalize(client, item, idx)));
     const incidents = dedupeIncidents(normalized.filter(Boolean));
     const contextArticles = await Promise.all(rawContext.map(async (article) => {
       const title = (article.title || '').trim();
