@@ -761,14 +761,28 @@ function ratioFromType(type) {
 
 function imageHtml(url, title) {
   const safeTitle = safeText(title || '');
-  const placeholder = `<div class="df-no-image-wrap"><div class="df-no-image-title">${safeTitle}</div></div>`;
   const normalizedUrl = String(url || '').trim();
-  if (!normalizedUrl || /^(null|undefined|none|n\/a)$/i.test(normalizedUrl)) return placeholder;
-  return `<img src="${safeText(normalizedUrl)}" alt="Incident image" data-fallback-title="${safeTitle}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"/>`;
+  const source = (!normalizedUrl || /^(null|undefined|none|n\/a)$/i.test(normalizedUrl))
+    ? generatedFallbackImage(title)
+    : normalizedUrl;
+  const origin = source === normalizedUrl ? 'documented' : 'generated';
+  return `<img src="${safeText(source)}" alt="Incident image" data-fallback-title="${safeTitle}" data-image-origin="${origin}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"/>`;
+}
+
+function generatedFallbackImage(title) {
+  const prompt = encodeURIComponent(`editorial abstract synthetic media still minimal white background ${String(title || '').slice(0, 140)}`);
+  return `https://image.pollinations.ai/prompt/${prompt}?width=800&height=600&nologo=true`;
 }
 
 function handleImageError(imgEl) {
   if (!imgEl || !imgEl.parentNode) return;
+  if (imgEl.dataset.retried !== '1') {
+    imgEl.dataset.retried = '1';
+    const title = imgEl.getAttribute('data-fallback-title') || '';
+    imgEl.src = generatedFallbackImage(title);
+    imgEl.dataset.imageOrigin = 'generated';
+    return;
+  }
   const title = imgEl.getAttribute('data-fallback-title') || '';
   const fallback = document.createElement('div');
   fallback.className = 'df-no-image-wrap';
@@ -908,7 +922,7 @@ function renderGallery() {
       <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">
         ${imageHtml(c.imageUrl, c.title)}
         <div class="df-visual-tag ${safeText(c.overlayTagClass || 'df-visual-category-entertainment')}">${safeText(c.overlayTag || c.label || 'Entertainment')}</div>
-        <div class="df-doc-tag">Documented</div>
+        <div class="df-doc-tag">${safeText(c.docTag || 'Documented')}</div>
       </div>
       <div class="df-card-meta">
         <div class="df-card-type">${safeText(c.label)}</div>
@@ -992,6 +1006,7 @@ function mapIncident(incident, index) {
     reportedOn: incident.reported_on || '',
     overlayTag: label,
     overlayTagClass: categoryTagClassMap[type] || 'df-visual-category-entertainment',
+    docTag: incident.image_url ? 'Documented' : 'AI visual',
     rightsLabel: rightsMap[incident.rights_status] || 'Unknown',
     usageNote: incident.usage_note || '',
     status: incident.status || 'reported_as_synthetic',
