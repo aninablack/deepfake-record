@@ -444,6 +444,36 @@
     font-weight: 500;
   }
 
+  .df-visual-tag {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    font-size: 8px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    font-weight: 600;
+    z-index: 2;
+    border: 1px solid transparent;
+  }
+
+  .df-visual-documented {
+    background: rgba(17, 17, 17, 0.84);
+    color: #fff;
+  }
+
+  .df-visual-illustrative {
+    background: rgba(37, 99, 235, 0.12);
+    color: #1d4ed8;
+    border-color: rgba(29, 78, 216, 0.24);
+  }
+
+  .df-visual-redacted {
+    background: rgba(113, 113, 122, 0.16);
+    color: #3f3f46;
+    border-color: rgba(63, 63, 70, 0.26);
+  }
+
   .b-pol { background: #f5f0ea; color: #5a3e28; }
   .b-fraud { background: #fce8e8; color: #7a2020; }
   .b-celeb { background: #e8eef8; color: #1a3660; }
@@ -653,7 +683,11 @@ function renderGallery() {
   const list = filter === 'all' ? cards : cards.filter((c) => c.type === filter);
   document.getElementById('gallery').innerHTML = list.map((c) => `
     <div class="df-card" data-url="${safeText(c.articleUrl || '')}">
-      <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">${imageHtml(c.imageUrl)}${c.isNew ? '<div class="df-new-tag">New</div>' : ''}</div>
+      <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">
+        ${imageHtml(c.imageUrl)}
+        <div class="df-visual-tag ${safeText(c.imageTagClass || 'df-visual-documented')}">${safeText(c.imageTag || 'Documented')}</div>
+        ${c.isNew ? '<div class="df-new-tag">New</div>' : ''}
+      </div>
       <div class="df-card-meta">
         <div class="df-card-type">${safeText(c.label)}</div>
         <div class="df-card-title">${safeText(c.title)}</div>
@@ -663,7 +697,7 @@ function renderGallery() {
         <div class="df-card-line">Reported by: ${safeText(c.source || 'GDELT feed')}</div>
         ${c.reportedOn ? `<div class="df-card-line">Reported on: ${safeText(c.reportedOn)}</div>` : ''}
         <div class="df-card-line">Detection confidence: ${Math.round((Number(c.confidence) || 0) * 100)}%</div>
-        <div class="df-card-visual">Visual: ${safeText(c.imageLabel || 'Documented incident image')} · Rights: ${safeText(c.rightsLabel || 'Link-only')}</div>
+        <div class="df-card-visual">Visual classification: ${safeText(c.imageLabel || 'Documented incident image')} · Rights: ${safeText(c.rightsLabel || 'Link-only')}</div>
         <div class="df-card-line">${safeText(c.usageNote || 'Status shown for editorial transparency.')}</div>
         <div class="df-card-status">Status: Reported as synthetic - not independently verified</div>
         <div class="df-card-badge ${c.badge}">${safeText(c.label)}</div>
@@ -695,6 +729,11 @@ function mapIncident(incident, index) {
     illustrative: 'Illustrative synthetic image',
     redacted: 'Redacted visual',
   };
+  const imageTagMap = {
+    documented: { tag: 'Documented', klass: 'df-visual-documented' },
+    illustrative: { tag: 'Illustrative', klass: 'df-visual-illustrative' },
+    redacted: { tag: 'Redacted', klass: 'df-visual-redacted' },
+  };
   const rightsMap = {
     licensed: 'Licensed',
     public_reporting_use: 'Public-reporting use',
@@ -717,6 +756,8 @@ function mapIncident(incident, index) {
     sourceType: incident.source_type || 'news',
     reportedOn: incident.reported_on || '',
     imageLabel: imageTypeMap[incident.image_type] || 'Documented incident image',
+    imageTag: (imageTagMap[incident.image_type] || imageTagMap.documented).tag,
+    imageTagClass: (imageTagMap[incident.image_type] || imageTagMap.documented).klass,
     rightsLabel: rightsMap[incident.rights_status] || 'Unknown',
     usageNote: incident.usage_note || '',
     status: incident.status || 'reported_as_synthetic',
