@@ -302,6 +302,10 @@ async function normalize(article, index) {
     return null;
   }
   const classified = classifyIncident(`${title} ${article.domain || ''} ${article.language || ''}`);
+  // Guardrail: celebrity cards must be explicitly deepfake-related to avoid gossip/news bleed.
+  if (classified.type === 'celeb' && !isTitleDeepfakeSpecific(`${title} ${description}`)) {
+    return null;
+  }
   // Backward-compatibility: some deployed databases still reject `culture`.
   // Keep ingest resilient by downgrading culture to synthetic until migration is confirmed.
   if (classified.type === 'culture') {
