@@ -402,4 +402,3 @@ module.exports = async (req, res) => {
     res.status(500).json({ ok: false, error: error.message, incidents: [] });
   }
 };
-    if (isHomepageLikeUrl(row.article_url)) continue;
