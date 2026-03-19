@@ -82,6 +82,18 @@ function canonicalUrl(url) {
   }
 }
 
+function isHomepageLikeUrl(url) {
+  if (!url) return true;
+  try {
+    const u = new URL(String(url));
+    const path = String(u.pathname || "/").replace(/\/+$/, "") || "/";
+    const low = path.toLowerCase();
+    return path === "/" || low === "/home" || low === "/index" || low === "/index.html" || low === "/news";
+  } catch {
+    return true;
+  }
+}
+
 function deriveRecordType(row) {
   const sourceType = String(row.source_type || "").toLowerCase();
   const claim = String(row.claim_url || "").toLowerCase();
@@ -390,3 +402,4 @@ module.exports = async (req, res) => {
     res.status(500).json({ ok: false, error: error.message, incidents: [] });
   }
 };
+    if (isHomepageLikeUrl(row.article_url)) continue;
