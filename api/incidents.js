@@ -1,4 +1,5 @@
 const { getAnonClient } = require("../lib/supabase");
+const { resolveImage } = require("../lib/placeholders");
 
 function toProxyUrl(url) {
   const raw = String(url || "").trim();
@@ -177,6 +178,42 @@ function dedupeAndFilter(rows) {
     .slice(0, 200);
 }
 
+async function enrichMissingImages(rows) {
+  const items = Array.isArray(rows) ? rows : [];
+  const out = [];
+  for (const row of items) {
+    const hasImage = /^https?:\/\//i.test(String(row.image_url || "").trim());
+    if (hasImage) {
+      out.push(row);
+      continue;
+    }
+    const articleUrl = String(row.article_url || "").trim();
+    if (!articleUrl) {
+      out.push(row);
+      continue;
+    }
+    const resolved = await resolveImage({
+      title: row.title,
+      description: row.summary,
+      url: articleUrl,
+      image_url: "",
+      socialimage: "",
+    });
+    if (resolved.documented && resolved.url) {
+      out.push({
+        ...row,
+        image_url: toProxyUrl(resolved.url),
+        image_type: "documented",
+        rights_status: row.rights_status || "link_only",
+        usage_note: row.usage_note || "Editorial thumbnail from reporting source.",
+      });
+    } else {
+      out.push(row);
+    }
+  }
+  return out;
+}
+
 function rebalanceSources(rows, limit) {
   const items = Array.isArray(rows) ? rows : [];
   if (!items.length) return [];
@@ -255,7 +292,8 @@ module.exports = async (req, res) => {
     if (error) throw error;
 
     const deduped = dedupeAndFilter(data || []);
-    const clean = rebalanceSources(deduped, limit);
+    const enriched = await enrichMissingImages(deduped);
+    const clean = rebalanceSources(enriched, limit);
     res.status(200).json({ ok: true, incidents: clean });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message, incidents: [] });
