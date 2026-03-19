@@ -748,7 +748,17 @@ function imageHtml(url, title) {
   const safeTitle = safeText(title || '');
   const placeholder = `<div class="df-no-image-wrap"><div class="df-no-image-label">Image unavailable</div><div class="df-no-image-title">${safeTitle}</div></div>`;
   if (!url) return placeholder;
-  return `<img src="${safeText(url)}" alt="Incident image" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.insertAdjacentHTML('afterend', '${placeholder.replace(/'/g, "\\'")}'); this.remove();"/>`;
+  return `<img src="${safeText(url)}" alt="Incident image" data-fallback-title="${safeTitle}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="handleImageError(this)"/>`;
+}
+
+function handleImageError(imgEl) {
+  if (!imgEl || !imgEl.parentNode) return;
+  const title = imgEl.getAttribute('data-fallback-title') || '';
+  const fallback = document.createElement('div');
+  fallback.className = 'df-no-image-wrap';
+  fallback.innerHTML = `<div class="df-no-image-label">Image unavailable</div><div class="df-no-image-title">${title}</div>`;
+  imgEl.parentNode.insertBefore(fallback, imgEl.nextSibling);
+  imgEl.remove();
 }
 
 function filterCards(type, btn) {
