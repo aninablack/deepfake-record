@@ -1082,10 +1082,11 @@ function buildVerifiedFromLive() {
 
 async function loadLiveData() {
   try {
+    const bust = Date.now();
     const [incidentsReq, verifiedReq, statsReq] = await Promise.allSettled([
-      fetch('/api/incidents?limit=800'),
-      fetch('/api/verified?limit=800'),
-      fetch('/api/stats'),
+      fetch(`/api/incidents?limit=800&t=${bust}`, { cache: 'no-store' }),
+      fetch(`/api/verified?limit=800&t=${bust}`, { cache: 'no-store' }),
+      fetch(`/api/stats?t=${bust}`, { cache: 'no-store' }),
     ]);
 
     const incidentsPayload = incidentsReq.status === 'fulfilled' ? await incidentsReq.value.json() : { ok: false };
