@@ -172,19 +172,7 @@ function dedupeAndFilter(rows) {
     finalByStory.set(key, prev ? pickPreferred(prev, item) : item);
   }
 
-  // Final collapse: same topic phrasing variants (e.g. "Is the ... café video ... | Debunked")
-  const finalByTopic = new Map();
-  for (const item of finalByStory.values()) {
-    const key = topicKey(item);
-    if (!key) {
-      finalByTopic.set(`id:${item.id}`, item);
-      continue;
-    }
-    const prev = finalByTopic.get(key);
-    finalByTopic.set(key, prev ? pickPreferred(prev, item) : item);
-  }
-
-  return Array.from(finalByTopic.values())
+  return Array.from(finalByStory.values())
     .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
     .slice(0, 200);
 }
