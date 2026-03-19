@@ -693,14 +693,23 @@ function canonicalUrl(url) {
 function dedupeCards(cards) {
   const seenUrl = new Set();
   const seenTitle = new Set();
+  const seenImage = new Set();
   const unique = [];
   for (const c of cards) {
     const u = canonicalUrl(c.articleUrl || '');
-    const t = `${String(c.title || '').trim().toLowerCase()}|${String(c.source || '').trim().toLowerCase()}`;
+    const t = String(c.title || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const tShort = t.split(' ').slice(0, 12).join(' ');
+    const img = canonicalUrl(c.imageUrl || '');
     if (u && seenUrl.has(u)) continue;
-    if (!u && t !== '|' && seenTitle.has(t)) continue;
+    if (tShort && seenTitle.has(tShort)) continue;
+    if (img && seenImage.has(img)) continue;
     if (u) seenUrl.add(u);
-    if (!u && t !== '|') seenTitle.add(t);
+    if (tShort) seenTitle.add(tShort);
+    if (img) seenImage.add(img);
     unique.push(c);
   }
   return unique;
