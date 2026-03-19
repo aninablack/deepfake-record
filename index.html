@@ -1070,9 +1070,10 @@ async function loadLiveData() {
 }
 
 function updateHeroCounters() {
-  const usingFallback = mode === 'verified' && verifiedTotal === 0;
-  const value = mode === 'verified' && !usingFallback ? verifiedTotal : liveTotal;
-  const label = mode === 'verified' && !usingFallback ? 'Verified archive' : 'Incidents logged';
+  const activeCards = getActiveCards();
+  const visibleCards = filter === 'all' ? activeCards : activeCards.filter((c) => c.type === filter);
+  const value = visibleCards.length;
+  const label = mode === 'verified' ? 'Cards shown (verified)' : 'Cards shown (live)';
   const counterEl = document.getElementById('counter');
   const labelEl = document.getElementById('counterLabel');
   if (counterEl) counterEl.textContent = (value || 0).toLocaleString();
