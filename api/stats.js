@@ -1,5 +1,21 @@
 const { getAnonClient } = require("../lib/supabase");
 
+function prettyPlatform(value) {
+  const v = String(value || "").toLowerCase();
+  if (!v) return "Unknown";
+  if (v.includes("news.google.")) return "Google News";
+  if (v.includes("reddit")) return "Reddit";
+  if (v.includes("x.com") || v === "x" || v.includes("twitter")) return "X";
+  if (v.includes("youtube")) return "YouTube";
+  if (v.includes("instagram")) return "Instagram";
+  if (v.includes("tiktok")) return "TikTok";
+  if (v.includes("facebook")) return "Facebook";
+  if (v.includes("whatsapp")) return "WhatsApp";
+  if (v.includes("telegram")) return "Telegram";
+  if (value === "Unknown") return "Unknown";
+  return String(value).replace(/^www\./i, "");
+}
+
 module.exports = async (_req, res) => {
   try {
     const client = getAnonClient();
@@ -35,7 +51,7 @@ module.exports = async (_req, res) => {
       verified_total: verifiedCountError ? 0 : (verifiedCount || 0),
       scanned_total: scannedTotal,
       latest_minutes_ago: latestMinutes,
-      top_platform: topPlatformData && topPlatformData[0] ? topPlatformData[0].platform : "Unknown",
+      top_platform: prettyPlatform(topPlatformData && topPlatformData[0] ? topPlatformData[0].platform : "Unknown"),
     });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message, total: 0, live_total: 0, verified_total: 0, scanned_total: 0, latest_minutes_ago: null, top_platform: "Unknown" });
