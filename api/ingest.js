@@ -1,6 +1,6 @@
 const { getServiceClient } = require('../lib/supabase');
 const { config } = require('../lib/config');
-const { classifyIncident, platformFromUrl, detectReportedPlatforms } = require('../lib/classify');
+const { classifyIncident, platformFromUrl, detectReportedPlatforms, isContextOnlyArticle } = require('../lib/classify');
 const { resolveImageUrl } = require('../lib/placeholders');
 const { scoreWithProviders, blendConfidence } = require('../lib/detectors');
 
@@ -266,6 +266,9 @@ async function normalize(article, index) {
   const description =
     article.description ||
     (article.seendate ? `Seen ${article.seendate}` : '') + (article.sourcecountry ? ` · ${article.sourcecountry}` : '');
+  if (isContextOnlyArticle(`${title} ${description} ${article.url || ''}`)) {
+    return null;
+  }
   const classified = classifyIncident(`${title} ${article.domain || ''} ${article.language || ''}`);
   const sourceDomain = article.domain || 'unknown';
   const articleUrl = article.url || null;
@@ -374,7 +377,7 @@ module.exports = async (_req, res) => {
     const redditRaw = await fetchRedditArticles();
     const mergedRaw = [...raw, ...rssRaw, ...redditRaw];
     const normalized = await Promise.all(mergedRaw.map((item, idx) => normalize(item, idx)));
-    const incidents = dedupeIncidents(normalized);
+    const incidents = dedupeIncidents(normalized.filter(Boolean));
     const contextArticles = rawContext.map((article) => {
       const title = (article.title || '').trim();
       const sourceDomain = article.domain || 'unknown';
