@@ -270,6 +270,22 @@
     gap: 22px;
   }
 
+  .df-legend {
+    border-bottom: 1px solid #111;
+    padding: 10px 32px 12px;
+  }
+
+  .df-legend-text {
+    font-size: 11px;
+    color: #555;
+    line-height: 1.5;
+  }
+
+  .df-legend-text strong {
+    color: #111;
+    font-weight: 600;
+  }
+
   .df-resource-head {
     font-size: 10px;
     letter-spacing: 0.22em;
@@ -311,6 +327,7 @@
     .df-masthead { padding: 14px 16px; }
     .df-filters { padding: 10px 16px; }
     .df-resources { grid-template-columns: 1fr; padding: 14px 16px; }
+    .df-legend { padding: 10px 16px 12px; }
   }
 
   .df-card {
@@ -541,6 +558,14 @@
         <a href="https://www.get-metadata.com/" target="_blank" rel="noopener noreferrer">Get-Metadata</a>
         <a href="https://huggingface.co/spaces" target="_blank" rel="noopener noreferrer">Hugging Face Spaces</a>
       </div>
+    </div>
+  </div>
+
+  <div class="df-legend">
+    <div class="df-legend-text">
+      <strong>Documented</strong> = image published in reporting/research about the incident. &nbsp;
+      <strong>Illustrative</strong> = synthetic placeholder used for context and design, not evidence. &nbsp;
+      <strong>Redacted</strong> = visual withheld for safety, rights, or harm-reduction.
     </div>
   </div>
 
