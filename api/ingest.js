@@ -320,6 +320,11 @@ async function normalize(article, index) {
     classified.type = 'synthetic';
     classified.label = 'Synthetic image';
   }
+  // Emergency runtime override for production incidents_category_check mismatches.
+  if (process.env.FORCE_CATEGORY_FALLBACK === '1' && classified.type === 'culture') {
+    classified.type = 'synthetic';
+    classified.label = 'Synthetic image';
+  }
   const politicsHint = /(propaganda|government|minister|election|state media|campaign|parliament|senate|president)/i.test(`${title} ${description}`);
   if (politicsHint && classified.type === 'synthetic') {
     classified.type = 'political';
@@ -454,7 +459,7 @@ module.exports = async (_req, res) => {
     });
     const result = await upsertIncidents(client, incidents);
     const contextResult = await upsertContextArticles(client, contextArticles);
-    await logIngestRun(client, raw.length, result.inserted);
+    await logIngestRun(client, mergedRaw.length, result.inserted);
     res.status(200).json({
       ok: true,
       fetched: mergedRaw.length,
