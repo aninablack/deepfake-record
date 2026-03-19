@@ -747,7 +747,7 @@ function imageHtml(url, title) {
   const placeholder = `<div class="df-no-image-wrap"><div class="df-no-image-title">${safeTitle}</div></div>`;
   const normalizedUrl = String(url || '').trim();
   if (!normalizedUrl || /^(null|undefined|none|n\/a)$/i.test(normalizedUrl)) return placeholder;
-  return `<img src="${safeText(normalizedUrl)}" alt="Incident image" data-fallback-title="${safeTitle}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="handleImageError(this)"/>`;
+  return `<img src="${safeText(normalizedUrl)}" alt="Incident image" data-fallback-title="${safeTitle}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"/>`;
 }
 
 function handleImageError(imgEl) {
@@ -758,6 +758,17 @@ function handleImageError(imgEl) {
   fallback.innerHTML = `<div class="df-no-image-title">${title}</div>`;
   imgEl.parentNode.insertBefore(fallback, imgEl.nextSibling);
   imgEl.remove();
+}
+
+function attachImageFallbacks() {
+  document.querySelectorAll('.df-card-img img').forEach((imgEl) => {
+    if (imgEl.dataset.boundError === '1') return;
+    imgEl.dataset.boundError = '1';
+    imgEl.addEventListener('error', () => handleImageError(imgEl));
+    if (imgEl.complete && imgEl.naturalWidth === 0) {
+      handleImageError(imgEl);
+    }
+  });
 }
 
 function filterCards(type, btn) {
@@ -872,6 +883,7 @@ function renderGallery() {
         <div class="df-card-badge ${c.badge}">${safeText(c.label)}</div>
       </div>
     </div>`).join('');
+  attachImageFallbacks();
   attachCardClicks();
 }
 
@@ -960,7 +972,7 @@ function buildVerifiedFromLive() {
 async function loadLiveData() {
   try {
     const [incidentsReq, verifiedReq, statsReq] = await Promise.allSettled([
-      fetch('/api/incidents?limit=120'),
+      fetch('/api/incidents?limit=200'),
       fetch('/api/verified?limit=300'),
       fetch('/api/stats'),
     ]);
