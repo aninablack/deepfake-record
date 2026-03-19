@@ -258,8 +258,8 @@
 
   .df-gallery {
     padding: 28px 32px;
-    columns: 3;
-    column-gap: 20px;
+    columns: 4;
+    column-gap: 16px;
   }
 
   .df-resources {
@@ -356,6 +356,14 @@
     border-bottom-color: #111;
   }
 
+  @media (max-width: 1400px) {
+    .df-gallery { columns: 3; }
+  }
+
+  @media (max-width: 980px) {
+    .df-gallery { columns: 2; padding: 20px; }
+  }
+
   @media (max-width: 700px) {
     .df-gallery { columns: 2; padding: 16px; }
     .df-hero { grid-template-columns: 1fr; }
@@ -376,7 +384,7 @@
 
   .df-card {
     break-inside: avoid;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     border: 0.5px solid #ddd;
     cursor: pointer;
     transition: border-color 0.15s;
