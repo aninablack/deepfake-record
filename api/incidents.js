@@ -34,7 +34,15 @@ function canonicalUrl(url) {
 
 function classifyCategory(row) {
   const hay = `${row.title || ""} ${row.summary || ""}`.toLowerCase();
-  if (/(voice clone|cloned voice|ai voice|voice deepfake|audio deepfake|deepfake audio)/.test(hay)) return "audio";
+  if (
+    /(voice clone|cloned voice|ai voice|voice deepfake|audio deepfake|deepfake audio|vocal clone|synthetic voice|soundalike|mimic(?:ked|ry)? voice)/.test(
+      hay
+    ) ||
+    (/(song|music|track|record label|artist|singer|beyonc|sony music)/.test(hay) &&
+      /(deepfake|deep fake|ai[- ]generated|synthetic|fake audio|voice)/.test(hay))
+  ) {
+    return "audio";
+  }
   if (/(scam|fraud|impersonation|wire transfer|extortion|phishing|bank)/.test(hay)) return "fraud";
   if (/(election|government|minister|campaign|parliament|senate|president|council|councillor|propaganda|state media|lawmaker|politician)/.test(hay)) return "political";
   if (/(artist|writer|music|film|cinema|entertainment|creative|copyright)/.test(hay) && hasDeepfakeSignal(hay)) return "culture";

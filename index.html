@@ -931,7 +931,11 @@ function mapIncident(incident, index) {
   const headline = `${incident.title || ''} ${incident.summary || ''}`.toLowerCase();
   let type = incident.category || 'synthetic';
   // Keep backend category as source of truth; only apply high-confidence overrides.
-  if (/(voice clone|cloned voice|ai voice|synthetic voice|voice deepfake|audio deepfake|deepfake audio)/.test(headline)) {
+  if (
+    /(voice clone|cloned voice|ai voice|synthetic voice|voice deepfake|audio deepfake|deepfake audio|vocal clone|soundalike|mimic(?:ked|ry)? voice)/.test(headline) ||
+    (/(song|music|track|record label|artist|singer|beyonc|sony music)/.test(headline) &&
+      /(deepfake|deep fake|ai[- ]generated|synthetic|fake audio|voice)/.test(headline))
+  ) {
     type = 'audio';
   } else if (/(scam|fraud|impersonation|wire transfer|extortion|phishing|bank)/.test(headline)) {
     type = 'fraud';
