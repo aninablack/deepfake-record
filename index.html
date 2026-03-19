@@ -785,8 +785,15 @@ function generatedFallbackImage(title) {
 }
 
 function generatedFallbackImageFromContext(title, summary, category) {
+  const cat = String(category || 'entertainment').toLowerCase();
+  const styleByCategory = {
+    fraud: 'editorial illustration of digital fraud risk, identity theft, cybercrime dashboard motifs',
+    political: 'editorial illustration of misinformation and civic discourse, public institutions, media verification motifs',
+    entertainment: 'editorial illustration of synthetic media in culture and celebrity context, studio and media motifs',
+  };
+  const style = styleByCategory[cat] || styleByCategory.entertainment;
   const prompt = encodeURIComponent(
-    `editorial illustrative scene for a deepfake news story, category ${String(category || 'entertainment')}, subject ${String(title || '').slice(0, 120)}, context ${String(summary || '').slice(0, 120)}, no logos, no product shots, no random landscapes, no food closeups`
+    `${style}. Story: ${String(title || '').slice(0, 120)}. Context: ${String(summary || '').slice(0, 120)}. 2D illustration, clean composition, no food, no produce, no landscapes, no beaches, no roads, no random objects, no product photography, no logos, no text in image`
   );
   return `https://image.pollinations.ai/prompt/${prompt}?width=800&height=600&nologo=true`;
 }
