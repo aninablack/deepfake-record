@@ -1,6 +1,12 @@
 const { getServiceClient } = require('../lib/supabase');
 const { config } = require('../lib/config');
-const { classifyIncident, platformFromUrl, detectReportedPlatforms, isContextOnlyArticle } = require('../lib/classify');
+const {
+  classifyIncident,
+  platformFromUrl,
+  detectReportedPlatforms,
+  isContextOnlyArticle,
+  isDeepfakeRelevant,
+} = require('../lib/classify');
 const { resolveImageUrl } = require('../lib/placeholders');
 const { scoreWithProviders, blendConfidence } = require('../lib/detectors');
 
@@ -266,6 +272,9 @@ async function normalize(article, index) {
   const description =
     article.description ||
     (article.seendate ? `Seen ${article.seendate}` : '') + (article.sourcecountry ? ` · ${article.sourcecountry}` : '');
+  if (!isDeepfakeRelevant(`${title} ${description} ${article.url || ''}`)) {
+    return null;
+  }
   if (isContextOnlyArticle(`${title} ${description} ${article.url || ''}`)) {
     return null;
   }
