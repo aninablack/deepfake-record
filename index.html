@@ -681,10 +681,7 @@ let tickerItems = [
   'Status: reported as synthetic, auto-classified',
   'No manual approval queue',
   'GDELT refresh every 15 minutes',
-  'Free pipeline mode enabled',
-  'Live synthetic media tracker',
-  'Status: reported as synthetic, auto-classified',
-  'No manual approval queue'
+  'Free pipeline mode enabled'
 ];
 
 let counter = 2847;
@@ -900,7 +897,8 @@ function attachCardClicks() {
 }
 
 function renderTicker() {
-  document.getElementById('ticker').innerHTML = tickerItems.map((t) => `<span class="df-ticker-item">${safeText(t)}<span class="df-ticker-sep">·</span></span>`).join('');
+  const loopItems = [...tickerItems, ...tickerItems];
+  document.getElementById('ticker').innerHTML = loopItems.map((t) => `<span class="df-ticker-item">${safeText(t)}<span class="df-ticker-sep">·</span></span>`).join('');
   tickerInitialized = true;
 }
 
@@ -1009,11 +1007,7 @@ async function loadLiveData() {
         `Top platform: ${statsPayload.top_platform || 'Unknown'}`,
         'Status: reported as synthetic',
         'Auto-categorized feed',
-        `${liveTotal.toLocaleString()} live incidents logged`,
-        `${verifiedTotal.toLocaleString()} verified archive incidents`,
-        `${scannedCounter.toLocaleString()} items scanned`,
-        `Top platform: ${statsPayload.top_platform || 'Unknown'}`,
-        'No manual approval queue',
+        'No manual approval queue'
       ];
       if (!tickerInitialized) {
         tickerItems = nextTickerItems;
@@ -1025,8 +1019,7 @@ async function loadLiveData() {
       'Showing fallback dataset',
       'Check Supabase env keys',
       'Run /api/ingest to populate data',
-      'Live connection unavailable',
-      'Showing fallback dataset',
+      'No manual approval queue'
     ];
     if (!tickerInitialized) {
       tickerItems = nextTickerItems;
