@@ -247,9 +247,9 @@ function rebalanceSources(rows, limit) {
   const isLowQualityGoogleRow = (row) => {
     if (!isGoogleDomain(row.source_domain)) return false;
     const hasImage = !!String(row.image_url || "").trim();
-    // For gallery quality, suppress Google aggregator rows that have no
-    // trustworthy image at all; keep them in DB/archive, but don't render.
-    return !hasImage;
+    const confidence = Number(row.confidence) || 0;
+    // Keep no-image Google rows as text-headline cards, but suppress lower-confidence noise.
+    return !hasImage && confidence < 0.78;
   };
 
   const canTake = (row) => {
