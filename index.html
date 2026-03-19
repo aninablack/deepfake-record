@@ -813,7 +813,7 @@ function canonicalUrl(url) {
 function dedupeCards(cards) {
   const typeRank = { audio: 6, fraud: 5, political: 4, celeb: 3, culture: 2, synthetic: 1 };
   const byUrl = new Map();
-  const byTypeTitle = new Map();
+  const byTitle = new Map();
   const titleFingerprint = (value) =>
     String(value || '')
       .toLowerCase()
@@ -843,22 +843,22 @@ function dedupeCards(cards) {
       byUrl.set(u, prev ? pickBetter(prev, c) : c);
       continue;
     }
-    const key = `${c.type || 'synthetic'}|${tShort}`;
+    const key = tShort;
     if (!tShort) continue;
-    const prev = byTypeTitle.get(key);
-    byTypeTitle.set(key, prev ? pickBetter(prev, c) : c);
+    const prev = byTitle.get(key);
+    byTitle.set(key, prev ? pickBetter(prev, c) : c);
   }
 
-  // Secondary merge: collapse near-identical stories across different URLs in same category.
+  // Secondary merge: collapse near-identical stories across different URLs and category mismatches.
   for (const card of byUrl.values()) {
     const tShort = titleFingerprint(card.title);
     if (!tShort) continue;
-    const key = `${card.type || 'synthetic'}|${tShort}`;
-    const prev = byTypeTitle.get(key);
-    byTypeTitle.set(key, prev ? pickBetter(prev, card) : card);
+    const key = tShort;
+    const prev = byTitle.get(key);
+    byTitle.set(key, prev ? pickBetter(prev, card) : card);
   }
 
-  return Array.from(byTypeTitle.values());
+  return Array.from(byTitle.values());
 }
 
 function isDeepfakeCard(card) {
@@ -930,18 +930,14 @@ function renderTicker() {
 function mapIncident(incident, index) {
   const headline = `${incident.title || ''} ${incident.summary || ''}`.toLowerCase();
   let type = incident.category || 'synthetic';
+  // Keep backend category as source of truth; only apply high-confidence overrides.
   if (/(voice clone|cloned voice|ai voice|synthetic voice|voice deepfake|audio deepfake|deepfake audio)/.test(headline)) {
     type = 'audio';
   } else if (/(scam|fraud|impersonation|wire transfer|extortion|phishing|bank)/.test(headline)) {
     type = 'fraud';
-  } else if (/(election|government|minister|campaign|parliament|senate|president|council|councillor|propaganda|state media|lawmaker|politician)/.test(headline)) {
-    type = 'political';
-  } else if (/(artist|writers?|music|film|cinema|entertainment|creative|copyright)/.test(headline)) {
-    type = 'culture';
-  }
-  if (
+  } else if (
     type === 'synthetic' &&
-    /(propaganda|government|minister|election|campaign|parliament|senate|president|politic|state media|lawmaker|council|councillor)/.test(headline)
+    /(election|government|minister|campaign|parliament|senate|president|council|councillor|propaganda|state media|lawmaker|politician)/.test(headline)
   ) {
     type = 'political';
   }
