@@ -5,7 +5,7 @@ create table if not exists public.incidents (
   source_id text not null unique,
   title text not null,
   summary text,
-  category text not null check (category in ('political','fraud','celeb','synthetic','audio')),
+  category text not null check (category in ('political','fraud','celeb','culture','synthetic','audio')),
   category_label text not null,
   confidence numeric(3,2) not null default 0.50,
   source_domain text,
@@ -40,6 +40,16 @@ begin
   end if;
 end $$;
 
+alter table public.incidents drop constraint if exists incidents_category_check;
+alter table public.incidents
+  add constraint incidents_category_check
+  check (category in ('political','fraud','celeb','culture','synthetic','audio'));
+
+alter table public.historical_verified_incidents drop constraint if exists historical_verified_incidents_category_check;
+alter table public.historical_verified_incidents
+  add constraint historical_verified_incidents_category_check
+  check (category in ('political','fraud','celeb','culture','synthetic','audio'));
+
 create table if not exists public.ingest_runs (
   id uuid primary key default gen_random_uuid(),
   fetched integer not null default 0,
@@ -52,7 +62,7 @@ create table if not exists public.historical_verified_incidents (
   source_id text not null unique,
   title text not null,
   summary text,
-  category text not null check (category in ('political','fraud','celeb','synthetic','audio')),
+  category text not null check (category in ('political','fraud','celeb','culture','synthetic','audio')),
   category_label text not null,
   confidence numeric(3,2) not null default 0.90,
   platform text,

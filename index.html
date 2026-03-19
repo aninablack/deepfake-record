@@ -490,6 +490,7 @@
   .df-badge-celeb { background: #e8eef8; color: #1a3660; }
   .df-badge-synthetic { background: #e8f4ec; color: #1a4a28; }
   .df-badge-audio { background: #f5eaf8; color: #4a1a60; }
+  .df-badge-culture { background: #fdf1e7; color: #7b4a1f; }
 
   .df-ticker {
     position: sticky;
@@ -604,6 +605,7 @@
     <button class="df-filter-btn" onclick="filterCards('political', this)">Political</button>
     <button class="df-filter-btn" onclick="filterCards('fraud', this)">Fraud</button>
     <button class="df-filter-btn" onclick="filterCards('celeb', this)">Celebrity</button>
+    <button class="df-filter-btn" onclick="filterCards('culture', this)">Culture & arts</button>
     <button class="df-filter-btn" onclick="filterCards('synthetic', this)">Synthetic image</button>
     <button class="df-filter-btn" onclick="filterCards('audio', this)">Voice clone</button>
   </div>
@@ -696,6 +698,7 @@ const typeToCardBadge = {
   political: 'df-badge-political',
   fraud: 'df-badge-fraud',
   celeb: 'df-badge-celeb',
+  culture: 'df-badge-culture',
   synthetic: 'df-badge-synthetic',
   audio: 'df-badge-audio',
 };
@@ -704,6 +707,7 @@ const typeToLabel = {
   political: 'Political',
   fraud: 'Fraud',
   celeb: 'Celebrity',
+  culture: 'Culture & arts',
   synthetic: 'Synthetic image',
   audio: 'Voice clone',
 };
@@ -712,6 +716,7 @@ const typeToColor = {
   political: '#f5f0ea',
   fraud: '#faeaea',
   celeb: '#eaeef5',
+  culture: '#fdf4ec',
   synthetic: '#eaf4ee',
   audio: '#f5eaf8',
 };
