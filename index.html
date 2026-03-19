@@ -421,6 +421,22 @@
     color: #111;
     max-width: 92%;
   }
+  .df-image-title-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 14px;
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    line-height: 1.25;
+    color: #111;
+    z-index: 1;
+    pointer-events: none;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.35);
+  }
 
   .df-card-meta {
     padding: 10px 12px 12px;
@@ -926,6 +942,7 @@ function renderGallery() {
     <div class="df-card" data-url="${safeText(c.articleUrl || '')}">
       <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">
         ${imageHtml(c.imageUrl, c.title)}
+        ${c.showImageTitle ? `<div class="df-image-title-overlay">${safeText(c.title)}</div>` : ''}
         <div class="df-visual-tag ${safeText(c.overlayTagClass || 'df-visual-category-entertainment')}">${safeText(c.overlayTag || c.label || 'Entertainment')}</div>
         ${c.docTag ? `<div class="df-doc-tag">${safeText(c.docTag)}</div>` : ''}
       </div>
@@ -1012,6 +1029,7 @@ function mapIncident(incident, index) {
     overlayTag: label,
     overlayTagClass: categoryTagClassMap[type] || 'df-visual-category-entertainment',
     docTag: incident.image_type === 'documented' ? 'Documented' : '',
+    showImageTitle: true,
     rightsLabel: rightsMap[incident.rights_status] || 'Unknown',
     usageNote: incident.usage_note || '',
     status: incident.status || 'reported_as_synthetic',
