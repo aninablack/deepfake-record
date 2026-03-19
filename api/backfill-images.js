@@ -6,6 +6,14 @@ function isLikelyFallback(url) {
   return value.includes("image.pollinations.ai") || value.startsWith("data:image/svg+xml");
 }
 
+function isWeakOrMissingThumb(url) {
+  const value = String(url || "").trim().toLowerCase();
+  if (!value) return true;
+  if (/lh3\.googleusercontent\.com/.test(value)) return true;
+  if (/logo|favicon|apple-touch-icon|site-icon|brandmark|wordmark/.test(value)) return true;
+  return false;
+}
+
 module.exports = async (req, res) => {
   try {
     const client = getServiceClient();
@@ -21,8 +29,11 @@ module.exports = async (req, res) => {
 
     const rows = (data || []).filter((r) => {
       if (!r.article_url) return false;
-      if (String(r.image_type || "").toLowerCase() !== "documented") return true;
-      return isLikelyFallback(r.image_url);
+      const imageType = String(r.image_type || "").toLowerCase();
+      if (imageType !== "documented") return true;
+      if (isLikelyFallback(r.image_url)) return true;
+      if (isWeakOrMissingThumb(r.image_url)) return true;
+      return false;
     });
 
     let checked = 0;
