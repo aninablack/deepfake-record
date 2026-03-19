@@ -772,6 +772,7 @@ function imageHtml(url, title) {
 function proxiedImageUrl(url) {
   const u = String(url || '').trim();
   if (!u) return '';
+  if (u.startsWith('/api/image-proxy?')) return u;
   if (u.includes('image.pollinations.ai')) return u;
   return `/api/image-proxy?url=${encodeURIComponent(u)}`;
 }

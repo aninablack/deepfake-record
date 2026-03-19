@@ -1,5 +1,13 @@
 const { getAnonClient } = require("../lib/supabase");
 
+function toProxyUrl(url) {
+  const raw = String(url || "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("/api/image-proxy?")) return raw;
+  if (/image\.pollinations\.ai/i.test(raw)) return raw;
+  return `/api/image-proxy?url=${encodeURIComponent(raw)}`;
+}
+
 function hasDeepfakeSignal(text) {
   return /(deepfake|deep fake|voice clone|cloned voice|vocal clone|synthetic voice|voice deepfake|audio deepfake|fake audio|fake video|face swap|synthetic media|ai impersonation|ai song|ai[- ]generated song|soundalike|mimic(?:ked|ry)? voice|ai porn|non-consensual)/i.test(
     String(text || "")
@@ -72,7 +80,7 @@ function dedupeAndFilter(rows) {
     if (!hasDeepfakeSignal(hay) && !isAudioTagged) continue;
     const urlKey = canonicalUrl(row.article_url);
     const titleKey = normalizeTitle(row.title);
-    const next = { ...row, category: classifyCategory(row) };
+    const next = { ...row, category: classifyCategory(row), image_url: toProxyUrl(row.image_url) };
 
     const incidentKey = String(row.incident_key || "").trim();
     if (incidentKey) {
