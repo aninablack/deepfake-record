@@ -820,8 +820,26 @@ function dedupeCards(cards) {
   return unique;
 }
 
+function isDeepfakeCard(card) {
+  const hay = `${card.title || ''} ${card.summary || ''} ${card.articleUrl || ''}`.toLowerCase();
+  const needles = [
+    'deepfake',
+    'deep fake',
+    'voice clone',
+    'face swap',
+    'synthetic media',
+    'fake video',
+    'fake audio',
+    'ai impersonation',
+    'manipulated media',
+    'ai porn',
+    'non-consensual',
+  ];
+  return needles.some((n) => hay.includes(n));
+}
+
 function renderGallery() {
-  const cards = getActiveCards();
+  const cards = getActiveCards().filter(isDeepfakeCard);
   const list = filter === 'all' ? cards : cards.filter((c) => c.type === filter);
   document.getElementById('gallery').innerHTML = list.map((c) => `
     <div class="df-card" data-url="${safeText(c.articleUrl || '')}">
@@ -895,6 +913,7 @@ function mapIncident(incident, index) {
     badge: typeToCardBadge[type] || 'df-badge-synthetic',
     label,
     title: incident.title || 'Untitled incident',
+    summary: incident.summary || '',
     platform: `${incident.platform || incident.source_domain || 'Web'} · ${agoText(incident.published_at)}`,
     ratio: ratioFromType(type),
     isNew: index < 6,
