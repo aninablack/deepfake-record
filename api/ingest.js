@@ -37,14 +37,46 @@ function splitCsv(value) {
 }
 
 function shouldExcludeDomain(domain) {
+  const hardBlocked = new Set([
+    'bignewsnetwork.com',
+    'haskellforall.com',
+  ]);
   const list = splitCsv(config.excludedDomains).map((d) => d.toLowerCase());
   const value = String(domain || '').toLowerCase();
+  if (hardBlocked.has(value)) return true;
   return list.some((d) => value.includes(d));
 }
 
 function isExcludedByTitle(title) {
   const t = String(title || '').toLowerCase();
   return /(fortnite|gaming skin|battle pass|haskell for all|agentic coding spec)/.test(t);
+}
+
+function hasStrongDeepfakeSignal(text) {
+  return /(deepfake|deep fake|voice clone|cloned voice|face swap|fake audio|fake video|ai porn|non-consensual|synthetic media)/i.test(
+    String(text || '')
+  );
+}
+
+function passesStrictRelevance(article, title, description) {
+  const sourceType = article.source_type || 'news';
+  const full = `${title} ${description} ${article.url || ''}`;
+  const titleSignal = hasStrongDeepfakeSignal(title);
+  const fullSignal = hasStrongDeepfakeSignal(full);
+
+  // Never ingest if no strong deepfake signal exists anywhere.
+  if (!titleSignal && !fullSignal) return false;
+
+  // Opinion/editorial pieces must still be explicit in title to avoid generic policy content.
+  if (/(opinion|editorial|analysis)/i.test(title) && !titleSignal) return false;
+
+  // Raise quality bar globally to reduce false positives.
+  if (deepfakeRelevanceScore(title, description) < 3) return false;
+
+  // News sources require explicit title signal.
+  if (sourceType === 'news' && !titleSignal) return false;
+
+  return true;
 }
 
 function decodeXmlEntities(text) {
@@ -299,7 +331,7 @@ async function normalize(article, index) {
   if (!isDeepfakeRelevant(`${title} ${description} ${article.url || ''}`)) {
     return null;
   }
-  if (deepfakeRelevanceScore(title, description) < 2) {
+  if (!passesStrictRelevance(article, title, description)) {
     return null;
   }
   // Tighten generic news intake to avoid unrelated AI/culture stories.
