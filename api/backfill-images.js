@@ -36,7 +36,7 @@ module.exports = async (req, res) => {
         url: row.article_url,
         image_url: "",
         socialimage: "",
-      });
+      }, { client });
 
       if (!resolved.documented || !resolved.url) {
         unchanged += 1;

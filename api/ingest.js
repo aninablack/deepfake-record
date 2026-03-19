@@ -369,7 +369,7 @@ async function normalize(article, index) {
   }
   const sourceDomain = article.domain || 'unknown';
   const articleUrl = article.url || null;
-  const image = await resolveImage(article);
+  const image = await resolveImage(article, { client });
   const imageUrl = image.url;
   const publishedAt = parseSeenDate(article.seendate);
   const claimUrl = article.claim_url || null;
@@ -517,7 +517,7 @@ module.exports = async (_req, res) => {
       const articleUrl = article.url || null;
       const publishedAt = parseSeenDate(article.seendate);
       const topic = classifyContextTopic(`${title} ${sourceDomain}`);
-      const image = await resolveImage(article);
+      const image = await resolveImage(article, { client });
       return {
         source_id: articleUrl || `${sourceDomain}:${title}`,
         title: title || 'Untitled context article',
