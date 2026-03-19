@@ -1,6 +1,6 @@
 const { getServiceClient } = require('../lib/supabase');
 const { config } = require('../lib/config');
-const { classifyIncident, platformFromUrl } = require('../lib/classify');
+const { classifyIncident, platformFromUrl, detectReportedPlatforms } = require('../lib/classify');
 const { resolveImageUrl } = require('../lib/placeholders');
 const { scoreWithProviders, blendConfidence } = require('../lib/detectors');
 
@@ -19,6 +19,130 @@ async function fetchGdeltContext() {
     // Context coverage is optional; never fail core incident ingestion.
     return [];
   }
+}
+
+function splitCsv(value) {
+  return String(value || '')
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+function decodeXmlEntities(text) {
+  return String(text || '')
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+function stripHtml(text) {
+  return decodeXmlEntities(text).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function matchTag(block, tag) {
+  const re = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i');
+  const m = block.match(re);
+  return m ? stripHtml(m[1]) : '';
+}
+
+function matchAttrTag(block, tag, attrName) {
+  const re = new RegExp(`<${tag}[^>]*${attrName}=["']([^"']+)["'][^>]*>`, 'i');
+  const m = block.match(re);
+  return m ? m[1].trim() : '';
+}
+
+function parseRssItems(xml) {
+  const items = [];
+  const itemBlocks = xml.match(/<item[\s\S]*?<\/item>/gi) || [];
+  for (const block of itemBlocks) {
+    items.push({
+      title: matchTag(block, 'title'),
+      description: matchTag(block, 'description'),
+      link: matchTag(block, 'link'),
+      pubDate: matchTag(block, 'pubDate') || matchTag(block, 'dc:date'),
+    });
+  }
+  const entryBlocks = xml.match(/<entry[\s\S]*?<\/entry>/gi) || [];
+  for (const block of entryBlocks) {
+    items.push({
+      title: matchTag(block, 'title'),
+      description: matchTag(block, 'summary') || matchTag(block, 'content'),
+      link: matchAttrTag(block, 'link', 'href') || matchTag(block, 'id'),
+      pubDate: matchTag(block, 'updated') || matchTag(block, 'published'),
+    });
+  }
+  return items;
+}
+
+async function fetchRssArticles() {
+  const feeds = splitCsv(config.rssFeeds);
+  const records = [];
+  for (const feedUrl of feeds) {
+    try {
+      const res = await fetch(feedUrl, { headers: { 'user-agent': 'deepfake-record/1.0' } });
+      if (!res.ok) continue;
+      const xml = await res.text();
+      const parsed = parseRssItems(xml).slice(0, config.rssMaxItemsPerFeed);
+      for (const item of parsed) {
+        records.push({
+          title: item.title,
+          url: item.link,
+          seendate: item.pubDate,
+          domain: (() => {
+            try {
+              return new URL(item.link).hostname.replace(/^www\./, '');
+            } catch {
+              return 'unknown';
+            }
+          })(),
+          sourcecountry: null,
+          language: 'en',
+          socialimage: null,
+          description: item.description || '',
+          source_type: 'factcheck',
+        });
+      }
+    } catch {
+      // Skip failed feed and continue.
+    }
+  }
+  return records;
+}
+
+async function fetchRedditArticles() {
+  const subs = splitCsv(config.redditSubreddits);
+  const records = [];
+  for (const sub of subs) {
+    const url = `https://www.reddit.com/r/${encodeURIComponent(sub)}/new.json?limit=${config.redditMaxItemsPerSubreddit}`;
+    try {
+      const res = await fetch(url, { headers: { 'user-agent': 'deepfake-record/1.0' } });
+      if (!res.ok) continue;
+      const json = await res.json();
+      const children = json?.data?.children || [];
+      for (const item of children) {
+        const post = item?.data || {};
+        const articleUrl = post.url_overridden_by_dest || post.url || `https://www.reddit.com${post.permalink || ''}`;
+        records.push({
+          title: post.title || '',
+          url: articleUrl,
+          seendate: post.created_utc ? new Date(post.created_utc * 1000).toISOString() : null,
+          domain: post.domain || 'reddit.com',
+          sourcecountry: null,
+          language: 'en',
+          socialimage: post.thumbnail && /^https?:\/\//.test(post.thumbnail) ? post.thumbnail : null,
+          description: post.selftext || '',
+          source_type: 'social_report',
+          reddit_permalink: post.permalink ? `https://www.reddit.com${post.permalink}` : null,
+        });
+      }
+    } catch {
+      // Skip failed subreddit and continue.
+    }
+  }
+  return records;
 }
 
 async function fetchGdeltByQuery(query, maxrecords) {
@@ -66,12 +190,17 @@ function classifyContextTopic(text) {
 
 async function normalize(article, index) {
   const title = (article.title || '').trim();
-  const description = (article.seendate ? `Seen ${article.seendate}` : '') + (article.sourcecountry ? ` · ${article.sourcecountry}` : '');
+  const description =
+    article.description ||
+    (article.seendate ? `Seen ${article.seendate}` : '') + (article.sourcecountry ? ` · ${article.sourcecountry}` : '');
   const classified = classifyIncident(`${title} ${article.domain || ''} ${article.language || ''}`);
   const sourceDomain = article.domain || 'unknown';
   const articleUrl = article.url || null;
   const imageUrl = resolveImageUrl(article);
   const publishedAt = parseSeenDate(article.seendate);
+  const sourceType = article.source_type || 'news';
+  const reportedPlatforms = detectReportedPlatforms(`${title} ${description} ${articleUrl || ''}`);
+  const reportedOn = reportedPlatforms.length ? reportedPlatforms.join(',') : null;
 
   let providerScores = [];
   if (index < config.detectionMaxItems) {
@@ -89,6 +218,8 @@ async function normalize(article, index) {
     confidence: Number(blended.confidence.toFixed(2)),
     source_domain: sourceDomain,
     platform: platformFromUrl(articleUrl || sourceDomain),
+    source_type: sourceType,
+    reported_on: reportedOn,
     article_url: articleUrl,
     image_url: imageUrl,
     image_type: article.socialimage ? 'documented' : 'illustrative',
@@ -164,7 +295,10 @@ module.exports = async (_req, res) => {
       }
     }
     const rawContext = await fetchGdeltContext();
-    const incidents = await Promise.all(raw.map((item, idx) => normalize(item, idx)));
+    const rssRaw = await fetchRssArticles();
+    const redditRaw = await fetchRedditArticles();
+    const mergedRaw = [...raw, ...rssRaw, ...redditRaw];
+    const incidents = await Promise.all(mergedRaw.map((item, idx) => normalize(item, idx)));
     const contextArticles = rawContext.map((article) => {
       const title = (article.title || '').trim();
       const sourceDomain = article.domain || 'unknown';
@@ -189,8 +323,11 @@ module.exports = async (_req, res) => {
     await logIngestRun(client, raw.length, result.inserted);
     res.status(200).json({
       ok: true,
-      fetched: raw.length,
+      fetched: mergedRaw.length,
       upserted: result.inserted,
+      fetched_gdelt: raw.length,
+      fetched_rss: rssRaw.length,
+      fetched_reddit: redditRaw.length,
       context_fetched: rawContext.length,
       context_upserted: contextResult.inserted,
       warning,

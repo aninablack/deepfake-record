@@ -569,7 +569,9 @@ function renderGallery() {
         <div class="df-card-title">${safeText(c.title)}</div>
         <div class="df-card-platform">${safeText(c.platform)}</div>
         <div class="df-card-line">Source: ${safeText(c.source || 'GDELT feed')}</div>
+        <div class="df-card-line">Source type: ${safeText(c.sourceType || 'news')}</div>
         <div class="df-card-line">Reported by: ${safeText(c.source || 'GDELT feed')}</div>
+        ${c.reportedOn ? `<div class="df-card-line">Reported on: ${safeText(c.reportedOn)}</div>` : ''}
         <div class="df-card-line">Detection confidence: ${Math.round((Number(c.confidence) || 0) * 100)}%</div>
         <div class="df-card-visual">Visual: ${safeText(c.imageLabel || 'Documented incident image')} · Rights: ${safeText(c.rightsLabel || 'Link-only')}</div>
         <div class="df-card-line">${safeText(c.usageNote || 'Status shown for editorial transparency.')}</div>
@@ -622,6 +624,8 @@ function mapIncident(incident, index) {
     articleUrl: incident.article_url || '',
     confidence: incident.confidence || 0.5,
     source: incident.source_domain || 'GDELT feed',
+    sourceType: incident.source_type || 'news',
+    reportedOn: incident.reported_on || '',
     imageLabel: imageTypeMap[incident.image_type] || 'Documented incident image',
     rightsLabel: rightsMap[incident.rights_status] || 'Unknown',
     usageNote: incident.usage_note || '',

@@ -10,6 +10,8 @@ create table if not exists public.incidents (
   confidence numeric(3,2) not null default 0.50,
   source_domain text,
   platform text,
+  source_type text not null default 'news' check (source_type in ('news','factcheck','social_report')),
+  reported_on text,
   article_url text,
   image_url text,
   image_type text not null default 'documented' check (image_type in ('documented','illustrative','redacted')),
@@ -21,6 +23,20 @@ create table if not exists public.incidents (
   status text not null default 'reported_as_synthetic',
   created_at timestamptz not null default now()
 );
+
+alter table public.incidents add column if not exists source_type text not null default 'news';
+alter table public.incidents add column if not exists reported_on text;
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'incidents_source_type_check'
+  ) then
+    alter table public.incidents
+      add constraint incidents_source_type_check
+      check (source_type in ('news','factcheck','social_report'));
+  end if;
+end $$;
 
 create table if not exists public.ingest_runs (
   id uuid primary key default gen_random_uuid(),
@@ -67,6 +83,7 @@ create table if not exists public.context_articles (
 create index if not exists incidents_published_at_idx on public.incidents (published_at desc);
 create index if not exists incidents_category_idx on public.incidents (category);
 create index if not exists incidents_platform_idx on public.incidents (platform);
+create index if not exists incidents_source_type_idx on public.incidents (source_type);
 create index if not exists ingest_runs_run_at_idx on public.ingest_runs (run_at desc);
 create index if not exists historical_verified_published_at_idx on public.historical_verified_incidents (published_at desc);
 create index if not exists context_articles_published_at_idx on public.context_articles (published_at desc);

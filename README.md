@@ -4,8 +4,12 @@ This project keeps your approved design and wires it to live data.
 
 ## What is automated
 - Poll GDELT every 15 minutes via `api/ingest`
+- Pull free RSS feeds (Google News + fact-check publishers)
+- Pull Reddit new posts from configured subreddits
 - Auto-categorize incidents (`political`, `fraud`, `celeb`, `synthetic`, `audio`) using keyword heuristics
 - Use article image when available; fallback to free Pollinations image placeholders
+- Normalize all sources into one incidents table (`source_type`: `news`, `factcheck`, `social_report`)
+- Tag incidents with `reported_on` platform hints (X, TikTok, Instagram, etc.) when found in title/body/url
 - Upsert incidents into Supabase and publish immediately
 - Frontend loads live incidents + stats from API
 
