@@ -182,6 +182,12 @@ async function enrichMissingImages(rows) {
   const items = Array.isArray(rows) ? rows : [];
   const out = [];
   for (const row of items) {
+    const domain = String(row.source_domain || "").toLowerCase();
+    // Never attempt enrichment from Google News aggregator URLs; they often return generic thumbs.
+    if (domain === "news.google.com") {
+      out.push(row);
+      continue;
+    }
     const hasImage = /^https?:\/\//i.test(String(row.image_url || "").trim());
     if (hasImage) {
       out.push(row);
