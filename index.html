@@ -760,6 +760,7 @@ function filterCards(type, btn) {
   document.querySelectorAll('.df-filters > .df-filter-btn').forEach((b) => b.classList.remove('active'));
   btn.classList.add('active');
   renderGallery();
+  updateHeroCounters();
 }
 
 function toggleResourcePanel(panelId, btn) {
@@ -773,8 +774,8 @@ function setMode(nextMode, btn) {
   mode = nextMode;
   document.querySelectorAll('.df-mode-switch .df-filter-btn').forEach((b) => b.classList.remove('active'));
   btn.classList.add('active');
-  updateHeroCounters();
   renderGallery();
+  updateHeroCounters();
 }
 
 function getActiveCards() {
@@ -894,6 +895,7 @@ function renderGallery() {
     </div>`).join('');
   attachImageFallbacks();
   attachCardClicks();
+  updateHeroCounters();
 }
 
 function attachCardClicks() {
