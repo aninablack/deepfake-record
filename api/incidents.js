@@ -309,6 +309,7 @@ function rebalanceSources(rows, limit) {
 
   // Pass 1: prioritize non-Google and non-factcheck items first.
   const prioritized = [
+    ...nonGoogleItems.filter((r) => deriveRecordType(r) === "incident_direct"),
     ...nonGoogleItems.filter((r) => {
       const d = String(r.source_domain || "").toLowerCase();
       const t = String(r.source_type || "").toLowerCase();

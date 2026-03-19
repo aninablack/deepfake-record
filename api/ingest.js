@@ -207,6 +207,17 @@ function pickClaimUrl(candidateLinks = []) {
   return null;
 }
 
+function extractUrlsFromText(text) {
+  const raw = String(text || "");
+  const matches = Array.from(raw.matchAll(/https?:\/\/[^\s"'<>]+/gi)).map((m) => canonicalizeUrl(m[0]));
+  return matches.filter(Boolean);
+}
+
+function isDirectPlatformUrl(url) {
+  const low = String(url || "").toLowerCase();
+  return /(x\.com|twitter\.com|tiktok\.com|instagram\.com|facebook\.com|youtube\.com|youtu\.be|reddit\.com|t\.me)/.test(low);
+}
+
 function pickBestArticleUrl(primaryLink, candidateLinks = []) {
   const canonicalPrimary = canonicalizeUrl(primaryLink);
   const links = Array.isArray(candidateLinks) ? candidateLinks : [];
@@ -233,6 +244,9 @@ async function fetchRssArticles() {
       const parsed = parseRssItems(xml).slice(0, config.rssMaxItemsPerFeed);
       for (const item of parsed) {
         const canonicalLink = pickBestArticleUrl(item.link, item.links || []);
+        const textLinks = extractUrlsFromText(`${item.title || ""} ${item.description || ""}`);
+        const claimFromLinks = pickClaimUrl([...(item.links || []), ...textLinks]);
+        const claimUrl = claimFromLinks || (isDirectPlatformUrl(canonicalLink) ? canonicalLink : null);
         records.push({
           title: item.title,
           url: canonicalLink,
@@ -248,8 +262,8 @@ async function fetchRssArticles() {
           language: 'en',
           socialimage: null,
           description: item.description || '',
-          source_type: 'factcheck',
-          claim_url: pickClaimUrl(item.links || []),
+          source_type: claimUrl ? 'social_report' : 'factcheck',
+          claim_url: claimUrl,
         });
       }
     } catch {
@@ -399,7 +413,9 @@ async function normalize(client, article, index) {
   }
   const sourceDomain = article.domain || 'unknown';
   let articleUrl = canonicalizeUrl(article.url || '');
-  const claimUrl = article.claim_url ? canonicalizeUrl(article.claim_url) : null;
+  const claimUrl = article.claim_url
+    ? canonicalizeUrl(article.claim_url)
+    : (isDirectPlatformUrl(articleUrl) ? articleUrl : null);
   const homepageLike = isHomepageLikeUrl(articleUrl);
   if (homepageLike && claimUrl && !isHomepageLikeUrl(claimUrl)) {
     articleUrl = claimUrl;
