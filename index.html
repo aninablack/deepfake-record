@@ -264,10 +264,15 @@
 
   .df-resources {
     border-bottom: 1px solid #111;
-    padding: 18px 32px 16px;
+    padding: 10px 32px 12px;
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 22px;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .df-resource-panel {
+    border: 0.5px solid #ddd;
+    padding: 10px 12px;
   }
 
   .df-legend {
@@ -287,17 +292,56 @@
   }
 
   .df-resource-head {
+    width: 100%;
+    background: none;
+    border: none;
+    text-align: left;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: 'DM Sans', sans-serif;
     font-size: 10px;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: #666;
-    margin-bottom: 8px;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .df-resource-head-left {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .df-resource-count {
+    font-size: 9px;
+    color: #888;
+    letter-spacing: 0.1em;
+  }
+
+  .df-resource-caret {
+    font-size: 12px;
+    color: #666;
+    transform: rotate(0deg);
+    transition: transform 0.15s ease;
+  }
+
+  .df-resource-head[aria-expanded="true"] .df-resource-caret {
+    transform: rotate(90deg);
   }
 
   .df-resource-links {
-    display: flex;
+    display: none;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 0.5px solid #eee;
     flex-wrap: wrap;
     gap: 8px 14px;
+  }
+
+  .df-resource-links.open {
+    display: flex;
   }
 
   .df-resource-links a {
@@ -326,7 +370,7 @@
     }
     .df-masthead { padding: 14px 16px; }
     .df-filters { padding: 10px 16px; }
-    .df-resources { grid-template-columns: 1fr; padding: 14px 16px; }
+    .df-resources { grid-template-columns: 1fr; padding: 10px 16px 12px; }
     .df-legend { padding: 10px 16px 12px; }
   }
 
@@ -534,9 +578,12 @@
   </div>
 
   <div class="df-resources">
-    <div>
-      <div class="df-resource-head">Data Sources</div>
-      <div class="df-resource-links">
+    <div class="df-resource-panel">
+      <button class="df-resource-head" aria-expanded="false" onclick="toggleResourcePanel('sourcesLinks', this)">
+        <span class="df-resource-head-left">Data Sources <span class="df-resource-count">(11)</span></span>
+        <span class="df-resource-caret">›</span>
+      </button>
+      <div class="df-resource-links" id="sourcesLinks">
         <a href="https://www.gdeltproject.org/" target="_blank" rel="noopener noreferrer">GDELT Project</a>
         <a href="https://news.google.com/" target="_blank" rel="noopener noreferrer">Google News</a>
         <a href="https://www.snopes.com/" target="_blank" rel="noopener noreferrer">Snopes</a>
@@ -550,9 +597,12 @@
         <a href="https://www.reddit.com/" target="_blank" rel="noopener noreferrer">Reddit</a>
       </div>
     </div>
-    <div>
-      <div class="df-resource-head">Verify Images & AI</div>
-      <div class="df-resource-links">
+    <div class="df-resource-panel">
+      <button class="df-resource-head" aria-expanded="false" onclick="toggleResourcePanel('verifyLinks', this)">
+        <span class="df-resource-head-left">Verify Images & AI <span class="df-resource-count">(9)</span></span>
+        <span class="df-resource-caret">›</span>
+      </button>
+      <div class="df-resource-links" id="verifyLinks">
         <a href="https://images.google.com/" target="_blank" rel="noopener noreferrer">Google Images / Lens</a>
         <a href="https://tineye.com/" target="_blank" rel="noopener noreferrer">TinEye Reverse Image</a>
         <a href="https://fotoforensics.com/" target="_blank" rel="noopener noreferrer">FotoForensics</a>
@@ -666,6 +716,13 @@ function filterCards(type, btn) {
   document.querySelectorAll('.df-filters > .df-filter-btn').forEach((b) => b.classList.remove('active'));
   btn.classList.add('active');
   renderGallery();
+}
+
+function toggleResourcePanel(panelId, btn) {
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+  const isOpen = panel.classList.toggle('open');
+  if (btn) btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
 }
 
 function setMode(nextMode, btn) {
