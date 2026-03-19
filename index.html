@@ -745,8 +745,9 @@ function ratioFromType(type) {
 function imageHtml(url, title) {
   const safeTitle = safeText(title || '');
   const placeholder = `<div class="df-no-image-wrap"><div class="df-no-image-title">${safeTitle}</div></div>`;
-  if (!url) return placeholder;
-  return `<img src="${safeText(url)}" alt="Incident image" data-fallback-title="${safeTitle}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="handleImageError(this)"/>`;
+  const normalizedUrl = String(url || '').trim();
+  if (!normalizedUrl || /^(null|undefined|none|n\/a)$/i.test(normalizedUrl)) return placeholder;
+  return `<img src="${safeText(normalizedUrl)}" alt="Incident image" data-fallback-title="${safeTitle}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="handleImageError(this)"/>`;
 }
 
 function handleImageError(imgEl) {
@@ -844,7 +845,9 @@ function isDeepfakeCard(card) {
 }
 
 function renderGallery() {
-  const cards = getActiveCards().filter(isDeepfakeCard);
+  const activeCards = getActiveCards();
+  const relevantCards = activeCards.filter(isDeepfakeCard);
+  const cards = relevantCards.length ? relevantCards : activeCards;
   const list = filter === 'all' ? cards : cards.filter((c) => c.type === filter);
   document.getElementById('gallery').innerHTML = list.map((c) => `
     <div class="df-card" data-url="${safeText(c.articleUrl || '')}">
