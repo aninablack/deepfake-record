@@ -85,7 +85,16 @@ function dedupeAndFilter(rows) {
   }
   for (const item of byUrl.values()) byId.set(item.id, item);
   for (const item of byTitle.values()) byId.set(item.id, item);
-  return Array.from(byId.values())
+  const finalByTitle = new Map();
+  for (const item of byId.values()) {
+    const key = normalizeTitle(item.title);
+    if (!key) continue;
+    const prev = finalByTitle.get(key);
+    if (!prev || new Date(item.published_at || 0).getTime() > new Date(prev.published_at || 0).getTime()) {
+      finalByTitle.set(key, item);
+    }
+  }
+  return Array.from(finalByTitle.values())
     .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
     .slice(0, 200);
 }
