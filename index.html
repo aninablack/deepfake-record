@@ -857,8 +857,7 @@ function isDeepfakeCard(card) {
 
 function renderGallery() {
   const activeCards = getActiveCards();
-  const relevantCards = activeCards.filter(isDeepfakeCard);
-  const cards = relevantCards.length ? relevantCards : activeCards;
+  const cards = activeCards;
   const list = filter === 'all' ? cards : cards.filter((c) => c.type === filter);
   document.getElementById('gallery').innerHTML = list.map((c) => `
     <div class="df-card" data-url="${safeText(c.articleUrl || '')}">
@@ -977,8 +976,8 @@ function buildVerifiedFromLive() {
 async function loadLiveData() {
   try {
     const [incidentsReq, verifiedReq, statsReq] = await Promise.allSettled([
-      fetch('/api/incidents?limit=200'),
-      fetch('/api/verified?limit=300'),
+      fetch('/api/incidents?limit=400'),
+      fetch('/api/verified?limit=400'),
       fetch('/api/stats'),
     ]);
 
