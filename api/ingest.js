@@ -364,7 +364,7 @@ async function normalize(article, index) {
   }
   const sourceDomain = article.domain || 'unknown';
   const articleUrl = article.url || null;
-  const imageUrl = article.socialimage || article.image_url || null;
+  const imageUrl = resolveImageUrl(article);
   const publishedAt = parseSeenDate(article.seendate);
   const sourceType = article.source_type || 'news';
   const claimUrl = article.claim_url || null;
@@ -394,9 +394,9 @@ async function normalize(article, index) {
     reported_on: reportedOn,
     article_url: articleUrl,
     image_url: imageUrl,
-    image_type: 'documented',
+    image_type: article.socialimage ? 'documented' : 'illustrative',
     rights_status: article.socialimage ? 'link_only' : 'unknown',
-    usage_note: article.socialimage ? 'Editorial thumbnail from reporting source.' : 'No source image provided in reporting.',
+    usage_note: article.socialimage ? 'Editorial thumbnail from reporting source.' : 'Illustrative synthetic placeholder; not evidence image.',
     country: article.sourcecountry || null,
     language: article.language || null,
     published_at: publishedAt,
