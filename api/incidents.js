@@ -233,7 +233,7 @@ function rebalanceSources(rows, limit) {
   const items = Array.isArray(rows) ? rows : [];
   if (!items.length) return [];
 
-  const maxGoogleShare = Math.min(2, Math.max(1, Math.floor(limit * 0.05)));
+  const maxGoogleShare = Math.min(4, Math.max(1, Math.floor(limit * 0.1)));
   const minNonGoogleTarget = Math.min(limit, Math.max(10, Math.floor(limit * 0.8)));
   const maxPerDomain = Math.max(2, Math.floor(limit * 0.2));
   const maxFactcheckShare = Math.max(6, Math.floor(limit * 0.35));
@@ -310,7 +310,18 @@ function rebalanceSources(rows, limit) {
     }
   }
 
-  return selected.slice(0, limit);
+  // Final hard clamp: never exceed Google cap in the returned set.
+  const out = [];
+  let finalGoogleCount = 0;
+  for (const row of selected) {
+    if (out.length >= limit) break;
+    if (isGoogleDomain(row.source_domain)) {
+      if (finalGoogleCount >= maxGoogleShare) continue;
+      finalGoogleCount += 1;
+    }
+    out.push(row);
+  }
+  return out.slice(0, limit);
 }
 
 module.exports = async (req, res) => {
