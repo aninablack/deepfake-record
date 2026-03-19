@@ -15,7 +15,7 @@ create table if not exists public.incidents (
   reported_on text,
   article_url text,
   image_url text,
-  image_type text not null default 'documented' check (image_type in ('documented','illustrative')),
+  image_type text not null default 'documented' check (image_type in ('documented')),
   rights_status text not null default 'link_only' check (rights_status in ('licensed','public_reporting_use','link_only','unknown')),
   usage_note text,
   modalities text[] not null default array['image']::text[],
@@ -38,10 +38,10 @@ alter table public.incidents add column if not exists tags text[] not null defau
 alter table public.incidents add column if not exists harm_level text not null default 'low';
 alter table public.incidents add column if not exists source_priority text not null default 'other';
 alter table public.incidents add column if not exists incident_key text;
-update public.incidents set image_type = 'illustrative' where image_type = 'redacted';
+update public.incidents set image_type = 'documented' where image_type in ('redacted','illustrative');
 alter table public.incidents drop constraint if exists incidents_image_type_check;
 alter table public.incidents add constraint incidents_image_type_check
-  check (image_type in ('documented','illustrative'));
+  check (image_type in ('documented'));
 do $$
 begin
   if not exists (
@@ -80,10 +80,10 @@ alter table public.historical_verified_incidents drop constraint if exists histo
 alter table public.historical_verified_incidents
   add constraint historical_verified_incidents_category_check
   check (category in ('political','fraud','entertainment'));
-update public.historical_verified_incidents set image_type = 'illustrative' where image_type = 'redacted';
+update public.historical_verified_incidents set image_type = 'documented' where image_type in ('redacted','illustrative');
 alter table public.historical_verified_incidents drop constraint if exists historical_verified_incidents_image_type_check;
 alter table public.historical_verified_incidents add constraint historical_verified_incidents_image_type_check
-  check (image_type in ('documented','illustrative'));
+  check (image_type in ('documented'));
 
 create table if not exists public.ingest_runs (
   id uuid primary key default gen_random_uuid(),
@@ -104,7 +104,7 @@ create table if not exists public.historical_verified_incidents (
   source_domain text,
   source_url text,
   image_url text,
-  image_type text not null default 'documented' check (image_type in ('documented','illustrative')),
+  image_type text not null default 'documented' check (image_type in ('documented')),
   rights_status text not null default 'public_reporting_use' check (rights_status in ('licensed','public_reporting_use','link_only','unknown')),
   usage_note text,
   reach_estimate text,
