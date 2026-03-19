@@ -442,6 +442,10 @@
     line-height: 1.35;
     color: #111;
     font-weight: 400;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .df-card-platform {
@@ -457,6 +461,10 @@
     margin-top: 4px;
     font-weight: 400;
     overflow-wrap: anywhere;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 
   .df-card-link {
@@ -894,15 +902,9 @@ function renderGallery() {
         <div class="df-card-type">${safeText(c.label)}</div>
         <div class="df-card-title">${safeText(c.title)}</div>
         <div class="df-card-platform">${safeText(c.platform)}</div>
-        <div class="df-card-line">Source feed: ${safeText(c.sourceFeedLabel || 'GDELT')}</div>
         <div class="df-card-line">Publisher: ${safeText(c.source || 'Unknown')}</div>
-        ${c.reportedOn ? `<div class="df-card-line">Reported on: ${safeText(c.reportedOn)}</div>` : ''}
-        ${c.claimUrl ? `<div class="df-card-line">Original claim: <a class="df-card-link" href="${safeText(c.claimUrl)}" target="_blank" rel="noopener noreferrer">Open claim source</a></div>` : ''}
-        ${c.articleUrl ? `<div class="df-card-line">Article: <a class="df-card-link" href="${safeText(c.articleUrl)}" target="_blank" rel="noopener noreferrer">Open source article</a></div>` : ''}
-        <div class="df-card-line">Detection confidence: ${Math.round((Number(c.confidence) || 0) * 100)}%</div>
+        ${c.articleUrl ? `<div class="df-card-line">Article: <a class="df-card-link" href="${safeText(c.articleUrl)}" target="_blank" rel="noopener noreferrer">Open source</a></div>` : ''}
         <div class="df-card-visual">Visual classification: ${safeText(c.imageLabel || 'Documented incident image')} · Rights: ${safeText(c.rightsLabel || 'Link-only')}</div>
-        <div class="df-card-line">${safeText(c.usageNote || 'Status shown for editorial transparency.')}</div>
-        <div class="df-card-status">Status: Reported as synthetic - not independently verified</div>
         <div class="df-card-badge ${c.badge}">${safeText(c.label)}</div>
       </div>
     </div>`).join('');
