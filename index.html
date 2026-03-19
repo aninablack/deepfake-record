@@ -778,11 +778,17 @@ function ratioFromType(type) {
 function imageHtml(url, title) {
   const safeTitle = safeText(title || '');
   const normalizedUrl = String(url || '').trim();
-  const source = (!normalizedUrl || /^(null|undefined|none|n\/a)$/i.test(normalizedUrl))
-    ? generatedFallbackImage(title)
-    : normalizedUrl;
-  const origin = source === normalizedUrl ? 'documented' : 'generated';
+  const hasSourceImage = normalizedUrl && !/^(null|undefined|none|n\/a)$/i.test(normalizedUrl);
+  const source = hasSourceImage ? proxiedImageUrl(normalizedUrl) : generatedFallbackImage(title);
+  const origin = hasSourceImage ? 'documented' : 'generated';
   return `<img src="${safeText(source)}" alt="Incident image" data-fallback-title="${safeTitle}" data-image-origin="${origin}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"/>`;
+}
+
+function proxiedImageUrl(url) {
+  const u = String(url || '').trim();
+  if (!u) return '';
+  if (u.includes('image.pollinations.ai')) return u;
+  return `/api/image-proxy?url=${encodeURIComponent(u)}`;
 }
 
 function generatedFallbackImage(title) {
