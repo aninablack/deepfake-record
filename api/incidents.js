@@ -113,6 +113,50 @@ function dedupeAndFilter(rows) {
     .slice(0, 200);
 }
 
+function rebalanceSources(rows, limit) {
+  const items = Array.isArray(rows) ? rows : [];
+  if (!items.length) return [];
+
+  const maxGoogleShare = Math.max(8, Math.floor(limit * 0.4));
+  const maxPerDomain = Math.max(2, Math.floor(limit * 0.2));
+
+  const selected = [];
+  const domainCounts = new Map();
+  let googleCount = 0;
+
+  const canTake = (row) => {
+    const domain = String(row.source_domain || "").toLowerCase() || "unknown";
+    const currentDomainCount = domainCounts.get(domain) || 0;
+    if (currentDomainCount >= maxPerDomain) return false;
+    if (domain === "news.google.com" && googleCount >= maxGoogleShare) return false;
+    return true;
+  };
+
+  const take = (row) => {
+    const domain = String(row.source_domain || "").toLowerCase() || "unknown";
+    selected.push(row);
+    domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1);
+    if (domain === "news.google.com") googleCount += 1;
+  };
+
+  // Pass 1: take best items respecting caps.
+  for (const row of items) {
+    if (selected.length >= limit) break;
+    if (canTake(row)) take(row);
+  }
+
+  // Pass 2: fill remaining slots with anything recent if we still have room.
+  if (selected.length < limit) {
+    for (const row of items) {
+      if (selected.length >= limit) break;
+      if (selected.find((x) => x.id === row.id)) continue;
+      take(row);
+    }
+  }
+
+  return selected.slice(0, limit);
+}
+
 module.exports = async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 80), 200);
@@ -126,7 +170,8 @@ module.exports = async (req, res) => {
 
     if (error) throw error;
 
-    const clean = dedupeAndFilter(data || []).slice(0, limit);
+    const deduped = dedupeAndFilter(data || []);
+    const clean = rebalanceSources(deduped, limit);
     res.status(200).json({ ok: true, incidents: clean });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message, incidents: [] });
