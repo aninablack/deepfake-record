@@ -122,6 +122,21 @@ function canonicalizeUrl(url) {
   }
 }
 
+function isHomepageLikeUrl(url) {
+  if (!url) return true;
+  try {
+    const u = new URL(url);
+    const path = String(u.pathname || "/").trim();
+    const cleanPath = path.replace(/\/+$/, "") || "/";
+    const low = cleanPath.toLowerCase();
+    if (cleanPath === "/") return true;
+    if (["/home", "/index", "/index.html", "/news"].includes(low)) return true;
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 function dedupeIncidents(items) {
   const unique = [];
   const seenUrl = new Set();
@@ -383,11 +398,19 @@ async function normalize(client, article, index) {
     classified.label = 'Political';
   }
   const sourceDomain = article.domain || 'unknown';
-  const articleUrl = article.url || null;
+  let articleUrl = canonicalizeUrl(article.url || '');
+  const claimUrl = article.claim_url ? canonicalizeUrl(article.claim_url) : null;
+  const homepageLike = isHomepageLikeUrl(articleUrl);
+  if (homepageLike && claimUrl && !isHomepageLikeUrl(claimUrl)) {
+    articleUrl = claimUrl;
+  }
+  if (isHomepageLikeUrl(articleUrl)) {
+    // Skip low-quality homepage links that are not incident-level records.
+    return null;
+  }
   const image = await resolveImage(article, { client });
   const imageUrl = image.url;
   const publishedAt = parseSeenDate(article.seendate);
-  const claimUrl = article.claim_url || null;
   const reportedPlatforms = detectReportedPlatforms(`${title} ${description} ${articleUrl || ''}`);
   const reportedOn = reportedPlatforms.length ? reportedPlatforms.join(',') : null;
   const modalities = deriveModalities(`${title} ${description}`);

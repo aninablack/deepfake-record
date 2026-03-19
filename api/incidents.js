@@ -82,6 +82,17 @@ function canonicalUrl(url) {
   }
 }
 
+function deriveRecordType(row) {
+  const sourceType = String(row.source_type || "").toLowerCase();
+  const claim = String(row.claim_url || "").toLowerCase();
+  const article = String(row.article_url || "").toLowerCase();
+  const hasDirectClaim = /(x\.com|twitter\.com|tiktok\.com|instagram\.com|youtube\.com|youtu\.be|reddit\.com|t\.me|facebook\.com)/.test(claim);
+  if (hasDirectClaim) return "incident_direct";
+  if (sourceType === "context") return "context";
+  if (sourceType === "news" || sourceType === "factcheck" || article) return "incident_report";
+  return "context";
+}
+
 function classifyCategory(row) {
   const current = String(row.category || "").toLowerCase();
   if (["fraud", "political", "entertainment"].includes(current)) return current;
@@ -138,6 +149,7 @@ function dedupeAndFilter(rows) {
     const next = {
       ...row,
       category: classifyCategory(row),
+      record_type: deriveRecordType(row),
       image_url: isGenericGoogleThumb ? "" : toProxyUrl(row.image_url),
       image_type: isGenericGoogleThumb ? "illustrative" : row.image_type,
       rights_status: isGenericGoogleThumb ? "unknown" : row.rights_status,
