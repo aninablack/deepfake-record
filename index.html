@@ -428,6 +428,17 @@
     color: #666;
     margin-top: 4px;
     font-weight: 400;
+    overflow-wrap: anywhere;
+  }
+
+  .df-card-link {
+    color: #333;
+    text-decoration: none;
+    border-bottom: 1px solid #cfcfcf;
+  }
+
+  .df-card-link:hover {
+    border-bottom-color: #111;
   }
 
   .df-card-status {
@@ -810,8 +821,8 @@ function renderGallery() {
         <div class="df-card-line">Source feed: ${safeText(c.sourceFeedLabel || 'GDELT')}</div>
         <div class="df-card-line">Publisher: ${safeText(c.source || 'Unknown')}</div>
         ${c.reportedOn ? `<div class="df-card-line">Reported on: ${safeText(c.reportedOn)}</div>` : ''}
-        ${c.claimUrl ? `<div class="df-card-line">Original claim URL: ${safeText(c.claimUrl)}</div>` : ''}
-        ${c.articleUrl ? `<div class="df-card-line">Article: ${safeText(c.articleUrl)}</div>` : ''}
+        ${c.claimUrl ? `<div class="df-card-line">Original claim: <a class="df-card-link" href="${safeText(c.claimUrl)}" target="_blank" rel="noopener noreferrer">Open claim source</a></div>` : ''}
+        ${c.articleUrl ? `<div class="df-card-line">Article: <a class="df-card-link" href="${safeText(c.articleUrl)}" target="_blank" rel="noopener noreferrer">Open source article</a></div>` : ''}
         <div class="df-card-line">Detection confidence: ${Math.round((Number(c.confidence) || 0) * 100)}%</div>
         <div class="df-card-visual">Visual classification: ${safeText(c.imageLabel || 'Documented incident image')} · Rights: ${safeText(c.rightsLabel || 'Link-only')}</div>
         <div class="df-card-line">${safeText(c.usageNote || 'Status shown for editorial transparency.')}</div>
