@@ -461,6 +461,26 @@ async function logIngestRun(client, fetched, upserted) {
   return true;
 }
 
+async function logIncidentEvents(client, incidents) {
+  if (!Array.isArray(incidents) || incidents.length === 0) return { inserted: 0 };
+  const now = new Date().toISOString();
+  const rows = incidents.map((item) => ({
+    source_id: item.source_id || null,
+    article_url: item.article_url || null,
+    title: item.title || null,
+    category: item.category || null,
+    confidence: Number(item.confidence) || 0,
+    source_domain: item.source_domain || null,
+    source_type: item.source_type || null,
+    image_type: item.image_type || null,
+    published_at: item.published_at || null,
+    seen_at: now,
+  }));
+  const { error } = await client.from('incident_events').insert(rows);
+  if (error) return { inserted: 0, skipped: true };
+  return { inserted: rows.length };
+}
+
 module.exports = async (_req, res) => {
   try {
     const client = getServiceClient();
@@ -513,6 +533,7 @@ module.exports = async (_req, res) => {
     }));
     const result = await upsertIncidents(client, incidents);
     const contextResult = await upsertContextArticles(client, contextArticles);
+    const eventsResult = await logIncidentEvents(client, incidents);
     await logIngestRun(client, mergedRaw.length, result.inserted);
     res.status(200).json({
       ok: true,
@@ -524,6 +545,7 @@ module.exports = async (_req, res) => {
       fetched_reddit: redditRaw.length,
       context_fetched: rawContext.length,
       context_upserted: contextResult.inserted,
+      archived_events_logged: eventsResult.inserted || 0,
       warning,
       at: new Date().toISOString(),
     });
