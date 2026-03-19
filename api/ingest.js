@@ -543,12 +543,13 @@ module.exports = async (_req, res) => {
     try {
       raw = await fetchGdelt();
     } catch (err) {
-      if (String(err.message || '').includes('GDELT request failed (429)')) {
+      const msg = String(err?.message || '').trim();
+      if (msg.includes('GDELT request failed (429)')) {
         warnings.push('Primary GDELT feed rate-limited; run skipped safely.');
-        raw = [];
       } else {
-        throw err;
+        warnings.push(`Primary GDELT fetch failed; continuing with other sources. (${msg || 'unknown error'})`);
       }
+      raw = [];
     }
     if (raw.length === 0) {
       let gdeltFallback = [];
