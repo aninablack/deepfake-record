@@ -7,6 +7,7 @@ const {
   isContextOnlyArticle,
   isDeepfakeRelevant,
   isTitleDeepfakeSpecific,
+  deepfakeRelevanceScore,
 } = require('../lib/classify');
 const { resolveImageUrl } = require('../lib/placeholders');
 const { scoreWithProviders, blendConfidence } = require('../lib/detectors');
@@ -33,6 +34,12 @@ function splitCsv(value) {
     .split(',')
     .map((v) => v.trim())
     .filter(Boolean);
+}
+
+function shouldExcludeDomain(domain) {
+  const list = splitCsv(config.excludedDomains).map((d) => d.toLowerCase());
+  const value = String(domain || '').toLowerCase();
+  return list.some((d) => value.includes(d));
 }
 
 function decodeXmlEntities(text) {
@@ -273,7 +280,13 @@ async function normalize(article, index) {
   const description =
     article.description ||
     (article.seendate ? `Seen ${article.seendate}` : '') + (article.sourcecountry ? ` · ${article.sourcecountry}` : '');
+  if (shouldExcludeDomain(article.domain)) {
+    return null;
+  }
   if (!isDeepfakeRelevant(`${title} ${description} ${article.url || ''}`)) {
+    return null;
+  }
+  if (deepfakeRelevanceScore(title, description) < 2) {
     return null;
   }
   // Tighten generic news intake to avoid unrelated AI/culture stories.
@@ -284,6 +297,11 @@ async function normalize(article, index) {
     return null;
   }
   const classified = classifyIncident(`${title} ${article.domain || ''} ${article.language || ''}`);
+  const politicsHint = /(propaganda|government|minister|election|state media|campaign|parliament|senate|president)/i.test(`${title} ${description}`);
+  if (politicsHint && classified.type === 'synthetic') {
+    classified.type = 'political';
+    classified.label = 'Political';
+  }
   const sourceDomain = article.domain || 'unknown';
   const articleUrl = article.url || null;
   const imageUrl = resolveImageUrl(article);
