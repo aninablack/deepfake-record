@@ -42,8 +42,20 @@ function classifyCategory(row) {
 function dedupeAndFilter(rows) {
   const byUrl = new Map();
   const byTitle = new Map();
+  const byIncidentKey = new Map();
   const byId = new Map();
   const blockedDomains = new Set(["bignewsnetwork.com", "haskellforall.com", "intouchweekly.com", "citizensvoice.com"]);
+  const sourceRank = { factchecker: 3, major_outlet: 2, other: 1 };
+  const pickPreferred = (prev, next) => {
+    const prevRank = sourceRank[String(prev.source_priority || "").toLowerCase()] || 0;
+    const nextRank = sourceRank[String(next.source_priority || "").toLowerCase()] || 0;
+    if (nextRank !== prevRank) return nextRank > prevRank ? next : prev;
+    const prevConf = Number(prev.confidence) || 0;
+    const nextConf = Number(next.confidence) || 0;
+    if (nextConf !== prevConf) return nextConf > prevConf ? next : prev;
+    return new Date(next.published_at || 0).getTime() > new Date(prev.published_at || 0).getTime() ? next : prev;
+  };
+
   for (const row of rows || []) {
     const hay = `${row.title || ""} ${row.summary || ""} ${row.article_url || ""}`;
     const domain = String(row.source_domain || "").toLowerCase();
@@ -56,20 +68,23 @@ function dedupeAndFilter(rows) {
     const titleKey = normalizeTitle(row.title);
     const next = { ...row, category: classifyCategory(row) };
 
+    const incidentKey = String(row.incident_key || "").trim();
+    if (incidentKey) {
+      const prev = byIncidentKey.get(incidentKey);
+      byIncidentKey.set(incidentKey, prev ? pickPreferred(prev, next) : next);
+    }
+
     // Always attempt both URL and title dedupe so near-identical Google News cards collapse.
     if (urlKey) {
       const prev = byUrl.get(urlKey);
-      if (!prev || new Date(next.published_at || 0).getTime() > new Date(prev.published_at || 0).getTime()) {
-        byUrl.set(urlKey, next);
-      }
+      byUrl.set(urlKey, prev ? pickPreferred(prev, next) : next);
     }
     if (titleKey) {
       const prev = byTitle.get(titleKey);
-      if (!prev || new Date(next.published_at || 0).getTime() > new Date(prev.published_at || 0).getTime()) {
-        byTitle.set(titleKey, next);
-      }
+      byTitle.set(titleKey, prev ? pickPreferred(prev, next) : next);
     }
   }
+  for (const item of byIncidentKey.values()) byId.set(item.id, item);
   for (const item of byUrl.values()) byId.set(item.id, item);
   for (const item of byTitle.values()) byId.set(item.id, item);
   const finalByTitle = new Map();
@@ -77,9 +92,7 @@ function dedupeAndFilter(rows) {
     const key = normalizeTitle(item.title);
     if (!key) continue;
     const prev = finalByTitle.get(key);
-    if (!prev || new Date(item.published_at || 0).getTime() > new Date(prev.published_at || 0).getTime()) {
-      finalByTitle.set(key, item);
-    }
+    finalByTitle.set(key, prev ? pickPreferred(prev, item) : item);
   }
   return Array.from(finalByTitle.values())
     .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
@@ -93,7 +106,7 @@ module.exports = async (req, res) => {
 
     const { data, error } = await client
       .from("incidents")
-      .select("id,source_id,title,summary,category,category_label,confidence,platform,source_domain,source_type,claim_url,reported_on,article_url,image_url,image_type,rights_status,usage_note,published_at,status")
+      .select("id,source_id,title,summary,category,category_label,confidence,platform,source_domain,source_type,claim_url,reported_on,article_url,image_url,image_type,rights_status,usage_note,published_at,status,incident_key,source_priority")
       .order("published_at", { ascending: false })
       .limit(limit);
 
