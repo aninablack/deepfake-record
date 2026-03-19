@@ -9,6 +9,15 @@ function toProxyUrl(url) {
   return `/api/image-proxy?url=${encodeURIComponent(raw)}`;
 }
 
+function normalizeDomain(value) {
+  return String(value || "").trim().toLowerCase().replace(/^www\./, "");
+}
+
+function isGoogleDomain(value) {
+  const d = normalizeDomain(value);
+  return d === "news.google.com" || d.endsWith(".news.google.com") || d.includes("google.com");
+}
+
 function hasDeepfakeSignal(text) {
   return /(deepfake|deep fake|voice clone|cloned voice|vocal clone|synthetic voice|voice deepfake|audio deepfake|fake audio|fake video|face swap|synthetic media|ai impersonation|ai song|ai[- ]generated song|soundalike|mimic(?:ked|ry)? voice|ai porn|non-consensual)/i.test(
     String(text || "")
@@ -113,7 +122,7 @@ function dedupeAndFilter(rows) {
 
   for (const row of rows || []) {
     const hay = `${row.title || ""} ${row.summary || ""} ${row.article_url || ""}`;
-    const domain = String(row.source_domain || "").toLowerCase();
+    const domain = normalizeDomain(row.source_domain);
     if (blockedDomains.has(domain)) continue;
     const isAudioTagged =
       String(row.category || "").toLowerCase() === "audio" ||
@@ -123,7 +132,7 @@ function dedupeAndFilter(rows) {
     const titleKey = normalizeTitle(row.title);
     const rawImage = String(row.image_url || "").toLowerCase();
     const isGenericGoogleThumb =
-      String(row.source_domain || "").toLowerCase() === "news.google.com" &&
+      isGoogleDomain(row.source_domain) &&
       (/lh3\.googleusercontent\.com/i.test(rawImage) || /lh3\.googleusercontent\.com%2f/i.test(rawImage));
 
     const next = {
@@ -182,9 +191,9 @@ async function enrichMissingImages(rows) {
   const items = Array.isArray(rows) ? rows : [];
   const out = [];
   for (const row of items) {
-    const domain = String(row.source_domain || "").toLowerCase();
+    const domain = normalizeDomain(row.source_domain);
     // Never attempt enrichment from Google News aggregator URLs; they often return generic thumbs.
-    if (domain === "news.google.com") {
+    if (isGoogleDomain(domain)) {
       out.push(row);
       continue;
     }
@@ -234,21 +243,21 @@ function rebalanceSources(rows, limit) {
   let factcheckCount = 0;
 
   const canTake = (row) => {
-    const domain = String(row.source_domain || "").toLowerCase() || "unknown";
+    const domain = normalizeDomain(row.source_domain) || "unknown";
     const sourceType = String(row.source_type || "").toLowerCase();
     const currentDomainCount = domainCounts.get(domain) || 0;
     if (currentDomainCount >= maxPerDomain) return false;
-    if (domain === "news.google.com" && googleCount >= maxGoogleShare) return false;
+    if (isGoogleDomain(domain) && googleCount >= maxGoogleShare) return false;
     if (sourceType === "factcheck" && factcheckCount >= maxFactcheckShare) return false;
     return true;
   };
 
   const take = (row) => {
-    const domain = String(row.source_domain || "").toLowerCase() || "unknown";
+    const domain = normalizeDomain(row.source_domain) || "unknown";
     const sourceType = String(row.source_type || "").toLowerCase();
     selected.push(row);
     domainCounts.set(domain, (domainCounts.get(domain) || 0) + 1);
-    if (domain === "news.google.com") googleCount += 1;
+    if (isGoogleDomain(domain)) googleCount += 1;
     if (sourceType === "factcheck") factcheckCount += 1;
   };
 
@@ -257,14 +266,14 @@ function rebalanceSources(rows, limit) {
     ...items.filter((r) => {
       const d = String(r.source_domain || "").toLowerCase();
       const t = String(r.source_type || "").toLowerCase();
-      return d !== "news.google.com" && t !== "factcheck";
+      return !isGoogleDomain(d) && t !== "factcheck";
     }),
     ...items.filter((r) => {
       const d = String(r.source_domain || "").toLowerCase();
       const t = String(r.source_type || "").toLowerCase();
-      return d !== "news.google.com" && t === "factcheck";
+      return !isGoogleDomain(d) && t === "factcheck";
     }),
-    ...items.filter((r) => String(r.source_domain || "").toLowerCase() === "news.google.com"),
+    ...items.filter((r) => isGoogleDomain(r.source_domain)),
   ];
   for (const row of prioritized) {
     if (selected.length >= limit) break;
@@ -294,14 +303,14 @@ module.exports = async (req, res) => {
     const nonGoogleReq = client
       .from("incidents")
       .select("id,source_id,title,summary,category,category_label,confidence,platform,source_domain,source_type,claim_url,reported_on,article_url,image_url,image_type,rights_status,usage_note,published_at,status,incident_key,source_priority")
-      .neq("source_domain", "news.google.com")
+      .not("source_domain", "ilike", "%google.com%")
       .order("published_at", { ascending: false })
       .limit(nonGooglePoolLimit);
 
     const googleReq = client
       .from("incidents")
       .select("id,source_id,title,summary,category,category_label,confidence,platform,source_domain,source_type,claim_url,reported_on,article_url,image_url,image_type,rights_status,usage_note,published_at,status,incident_key,source_priority")
-      .eq("source_domain", "news.google.com")
+      .ilike("source_domain", "%google.com%")
       .order("published_at", { ascending: false })
       .limit(googlePoolLimit);
 
@@ -317,7 +326,20 @@ module.exports = async (req, res) => {
 
     const deduped = dedupeAndFilter(data || []);
     const enriched = await enrichMissingImages(deduped);
-    const clean = rebalanceSources(enriched, limit);
+    const clean = rebalanceSources(enriched, limit).map((row) => {
+      const rawImage = String(row.image_url || "").toLowerCase();
+      const shouldStripGenericGoogle =
+        isGoogleDomain(row.source_domain) &&
+        (/lh3\.googleusercontent\.com/i.test(rawImage) || /lh3\.googleusercontent\.com%2f/i.test(rawImage));
+      if (!shouldStripGenericGoogle) return row;
+      return {
+        ...row,
+        image_url: "",
+        image_type: "illustrative",
+        rights_status: "unknown",
+        usage_note: "Google aggregator thumbnail omitted; no article-specific evidence image.",
+      };
+    });
     res.status(200).json({ ok: true, incidents: clean });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message, incidents: [] });
