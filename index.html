@@ -851,12 +851,17 @@ function dedupeCards(cards) {
   const titleFingerprint = (value) =>
     String(value || '')
       .toLowerCase()
+      .replace(/\|.*$/g, ' ')
+      .replace(/[\(\[]\s*debunked\s*[\)\]]/g, ' ')
+      .replace(/\b(debunked|fact[\s-]?check|aol\.co\.uk|the independent|bbc)\b/g, ' ')
+      .replace(/\bdeepfakes\b/g, 'deepfake')
+      .replace(/\bartists\b/g, 'artist')
       .replace(/[\|\-:]\s*(bbc|cnn|reuters|ap|associated press|news|live updates?).*$/i, '')
       .replace(/[^a-z0-9\s]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
       .split(' ')
-      .filter((w) => w.length > 2 && !['the', 'and', 'for', 'with', 'from', 'this', 'that'].includes(w))
+      .filter((w) => w.length > 2 && !['the', 'and', 'for', 'with', 'from', 'this', 'that', 'of', 'to', 'in', 'on', 'its', 'a', 'an'].includes(w))
       .slice(0, 10)
       .join(' ');
 

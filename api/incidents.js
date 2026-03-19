@@ -9,12 +9,18 @@ function hasDeepfakeSignal(text) {
 function normalizeTitle(title) {
   return String(title || "")
     .toLowerCase()
+    .replace(/\|.*$/g, " ")
+    .replace(/[\(\[]\s*debunked\s*[\)\]]/g, " ")
+    .replace(/\b(debunked|fact[\s-]?check|aol\.co\.uk|the independent|bbc)\b/g, " ")
+    .replace(/\bdeepfakes\b/g, "deepfake")
+    .replace(/\bartists\b/g, "artist")
     .replace(/[\|\-:]\s*(bbc|cnn|reuters|ap|associated press|news|live updates?).*$/i, "")
     .replace(/[^a-z0-9\s]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .split(" ")
-    .slice(0, 12)
+    .filter((w) => !["the", "a", "an", "of", "and", "to", "for", "in", "on", "its"].includes(w))
+    .slice(0, 10)
     .join(" ");
 }
 
