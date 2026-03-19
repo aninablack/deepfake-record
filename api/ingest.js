@@ -42,6 +42,11 @@ function shouldExcludeDomain(domain) {
   return list.some((d) => value.includes(d));
 }
 
+function isExcludedByTitle(title) {
+  const t = String(title || '').toLowerCase();
+  return /(fortnite|gaming skin|battle pass)/.test(t);
+}
+
 function decodeXmlEntities(text) {
   return String(text || '')
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
@@ -286,6 +291,9 @@ async function normalize(article, index) {
     article.description ||
     (article.seendate ? `Seen ${article.seendate}` : '') + (article.sourcecountry ? ` · ${article.sourcecountry}` : '');
   if (shouldExcludeDomain(article.domain)) {
+    return null;
+  }
+  if (isExcludedByTitle(title)) {
     return null;
   }
   if (!isDeepfakeRelevant(`${title} ${description} ${article.url || ''}`)) {
