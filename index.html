@@ -812,7 +812,8 @@ function canonicalUrl(url) {
 
 function dedupeCards(cards) {
   const typeRank = { audio: 6, fraud: 5, political: 4, celeb: 3, culture: 2, synthetic: 1 };
-  const byKey = new Map();
+  const byUrl = new Map();
+  const byTypeTitle = new Map();
   const titleFingerprint = (value) =>
     String(value || '')
       .toLowerCase()
@@ -824,22 +825,40 @@ function dedupeCards(cards) {
       .filter((w) => w.length > 2 && !['the', 'and', 'for', 'with', 'from', 'this', 'that'].includes(w))
       .slice(0, 10)
       .join(' ');
+
+  const pickBetter = (prev, next) => {
+    const prevScore = (typeRank[prev.type] || 0) + (Number(prev.confidence) || 0);
+    const nextScore = (typeRank[next.type] || 0) + (Number(next.confidence) || 0);
+    if (nextScore !== prevScore) return nextScore > prevScore ? next : prev;
+    const prevTime = new Date(prev.published_at || 0).getTime();
+    const nextTime = new Date(next.published_at || 0).getTime();
+    return nextTime > prevTime ? next : prev;
+  };
+
   for (const c of cards) {
     const u = canonicalUrl(c.articleUrl || '');
     const tShort = titleFingerprint(c.title);
-    const img = canonicalUrl(c.imageUrl || '');
-    const key = u || `${c.type || 'synthetic'}|${tShort}` || img;
-    if (!key) continue;
-    const prev = byKey.get(key);
-    if (!prev) {
-      byKey.set(key, c);
+    if (u) {
+      const prev = byUrl.get(u);
+      byUrl.set(u, prev ? pickBetter(prev, c) : c);
       continue;
     }
-    const prevScore = (typeRank[prev.type] || 0) + (Number(prev.confidence) || 0);
-    const nextScore = (typeRank[c.type] || 0) + (Number(c.confidence) || 0);
-    if (nextScore > prevScore) byKey.set(key, c);
+    const key = `${c.type || 'synthetic'}|${tShort}`;
+    if (!tShort) continue;
+    const prev = byTypeTitle.get(key);
+    byTypeTitle.set(key, prev ? pickBetter(prev, c) : c);
   }
-  return Array.from(byKey.values());
+
+  // Secondary merge: collapse near-identical stories across different URLs in same category.
+  for (const card of byUrl.values()) {
+    const tShort = titleFingerprint(card.title);
+    if (!tShort) continue;
+    const key = `${card.type || 'synthetic'}|${tShort}`;
+    const prev = byTypeTitle.get(key);
+    byTypeTitle.set(key, prev ? pickBetter(prev, card) : card);
+  }
+
+  return Array.from(byTypeTitle.values());
 }
 
 function isDeepfakeCard(card) {
