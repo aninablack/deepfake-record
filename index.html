@@ -554,8 +554,38 @@ function setMode(nextMode, btn) {
 }
 
 function getActiveCards() {
-  if (mode === 'verified' && verifiedCards.length === 0) return liveCards;
-  return mode === 'verified' ? verifiedCards : liveCards;
+  const raw = mode === 'verified' && verifiedCards.length === 0
+    ? liveCards
+    : (mode === 'verified' ? verifiedCards : liveCards);
+  return dedupeCards(raw);
+}
+
+function canonicalUrl(url) {
+  if (!url) return '';
+  try {
+    const u = new URL(url);
+    ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content', 'gclid', 'fbclid'].forEach((k) => u.searchParams.delete(k));
+    u.hash = '';
+    return u.toString();
+  } catch {
+    return String(url).trim();
+  }
+}
+
+function dedupeCards(cards) {
+  const seenUrl = new Set();
+  const seenTitle = new Set();
+  const unique = [];
+  for (const c of cards) {
+    const u = canonicalUrl(c.articleUrl || '');
+    const t = `${String(c.title || '').trim().toLowerCase()}|${String(c.source || '').trim().toLowerCase()}`;
+    if (u && seenUrl.has(u)) continue;
+    if (!u && t !== '|' && seenTitle.has(t)) continue;
+    if (u) seenUrl.add(u);
+    if (!u && t !== '|') seenTitle.add(t);
+    unique.push(c);
+  }
+  return unique;
 }
 
 function renderGallery() {

@@ -42,6 +42,46 @@ function stripHtml(text) {
   return decodeXmlEntities(text).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+function canonicalizeUrl(url) {
+  if (!url) return '';
+  try {
+    const u = new URL(url);
+    const dropParams = [
+      'utm_source',
+      'utm_medium',
+      'utm_campaign',
+      'utm_term',
+      'utm_content',
+      'gclid',
+      'fbclid',
+      'mc_cid',
+      'mc_eid',
+    ];
+    dropParams.forEach((p) => u.searchParams.delete(p));
+    u.hash = '';
+    return u.toString();
+  } catch {
+    return String(url).trim();
+  }
+}
+
+function dedupeIncidents(items) {
+  const unique = [];
+  const seenUrl = new Set();
+  const seenTitle = new Set();
+  for (const item of items) {
+    const canonicalUrl = canonicalizeUrl(item.article_url);
+    const cleanTitle = String(item.title || '').trim().toLowerCase();
+    const keyTitle = `${cleanTitle}|${item.source_domain || ''}`;
+    if (canonicalUrl && seenUrl.has(canonicalUrl)) continue;
+    if (!canonicalUrl && cleanTitle && seenTitle.has(keyTitle)) continue;
+    if (canonicalUrl) seenUrl.add(canonicalUrl);
+    if (cleanTitle) seenTitle.add(keyTitle);
+    unique.push({ ...item, article_url: canonicalUrl || item.article_url });
+  }
+  return unique;
+}
+
 function matchTag(block, tag) {
   const re = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i');
   const m = block.match(re);
@@ -298,7 +338,8 @@ module.exports = async (_req, res) => {
     const rssRaw = await fetchRssArticles();
     const redditRaw = await fetchRedditArticles();
     const mergedRaw = [...raw, ...rssRaw, ...redditRaw];
-    const incidents = await Promise.all(mergedRaw.map((item, idx) => normalize(item, idx)));
+    const normalized = await Promise.all(mergedRaw.map((item, idx) => normalize(item, idx)));
+    const incidents = dedupeIncidents(normalized);
     const contextArticles = rawContext.map((article) => {
       const title = (article.title || '').trim();
       const sourceDomain = article.domain || 'unknown';
@@ -324,6 +365,7 @@ module.exports = async (_req, res) => {
     res.status(200).json({
       ok: true,
       fetched: mergedRaw.length,
+      deduped: incidents.length,
       upserted: result.inserted,
       fetched_gdelt: raw.length,
       fetched_rss: rssRaw.length,
