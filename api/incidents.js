@@ -33,23 +33,10 @@ function canonicalUrl(url) {
 }
 
 function classifyCategory(row) {
-  const hay = `${row.title || ""} ${row.summary || ""}`.toLowerCase();
-  const hasAudioFakeSignal =
-    /(voice clone|cloned voice|vocal clone|synthetic voice|voice deepfake|audio deepfake|deepfake audio|fake audio|ai impersonation|soundalike|mimic(?:ked|ry)? voice)/.test(
-      hay
-    );
-  if (
-    hasAudioFakeSignal ||
-    (/(song|music|track|record label|artist|singer|beyonc|sony music)/.test(hay) &&
-      /(deepfake|deep fake|voice clone|synthetic voice|audio deepfake|fake audio|ai impersonation|soundalike|mimic(?:ked|ry)? voice)/.test(hay))
-  ) {
-    return "audio";
-  }
-  if (/(scam|fraud|impersonation|wire transfer|extortion|phishing|bank)/.test(hay)) return "fraud";
-  if (/(election|government|minister|campaign|parliament|senate|president|council|councillor|propaganda|state media|lawmaker|politician)/.test(hay)) return "political";
-  if (/(artist|writer|music|film|cinema|entertainment|creative|copyright)/.test(hay) && hasDeepfakeSignal(hay)) return "culture";
-  if (/(celebrity|actor|actress|singer|star|influencer)/.test(hay) && hasDeepfakeSignal(hay)) return "celeb";
-  return row.category || "synthetic";
+  const current = String(row.category || "").toLowerCase();
+  if (["fraud", "political", "entertainment"].includes(current)) return current;
+  if (["audio", "culture", "celeb", "synthetic"].includes(current)) return "entertainment";
+  return "entertainment";
 }
 
 function dedupeAndFilter(rows) {

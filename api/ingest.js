@@ -8,6 +8,12 @@ const {
   isDeepfakeRelevant,
   isTitleDeepfakeSpecific,
   deepfakeRelevanceScore,
+  deriveModalities,
+  deriveTags,
+  deriveHarmLevel,
+  deriveSourcePriority,
+  buildIncidentKey,
+  isIncidentCandidate,
 } = require('../lib/classify');
 const { resolveImageUrl } = require('../lib/placeholders');
 const { scoreWithProviders, blendConfidence } = require('../lib/detectors');
@@ -49,7 +55,7 @@ function shouldExcludeDomain(domain) {
 
 function isExcludedByTitle(title) {
   const t = String(title || '').toLowerCase();
-  return /(fortnite|gaming skin|battle pass|haskell for all|agentic coding spec)/.test(t);
+  return /(fortnite|gaming skin|battle pass|haskell for all|agentic coding spec|iphone bug|nvidia dlss|meme backlash)/.test(t);
 }
 
 function hasStrongDeepfakeSignal(text) {
@@ -328,10 +334,14 @@ async function normalize(article, index) {
   if (isExcludedByTitle(title)) {
     return null;
   }
-  if (!isDeepfakeRelevant(`${title} ${description} ${article.url || ''}`)) {
+  const fullText = `${title} ${description} ${article.url || ''}`;
+  if (!isDeepfakeRelevant(fullText)) {
     return null;
   }
   if (!passesStrictRelevance(article, title, description)) {
+    return null;
+  }
+  if (!isIncidentCandidate(article, title, description)) {
     return null;
   }
   // Tighten generic news intake to avoid unrelated AI/culture stories.
@@ -341,18 +351,14 @@ async function normalize(article, index) {
   if (isContextOnlyArticle(`${title} ${description} ${article.url || ''}`)) {
     return null;
   }
-  const classified = classifyIncident(`${title} ${article.domain || ''} ${article.language || ''}`);
-  // Guardrail: celebrity cards must be explicitly deepfake-related to avoid gossip/news bleed.
-  if (classified.type === 'celeb' && !isTitleDeepfakeSpecific(`${title} ${description}`)) {
-    return null;
-  }
+  const classified = classifyIncident(`${title} ${description} ${article.domain || ''} ${article.language || ''}`);
   // Emergency runtime override for production incidents_category_check mismatches.
-  if (process.env.FORCE_CATEGORY_FALLBACK === '1' && classified.type === 'culture') {
-    classified.type = 'synthetic';
-    classified.label = 'Synthetic image';
+  if (process.env.FORCE_CATEGORY_FALLBACK === '1' && classified.type === 'entertainment') {
+    classified.type = 'entertainment';
+    classified.label = 'Entertainment';
   }
   const politicsHint = /(propaganda|government|minister|election|state media|campaign|parliament|senate|president)/i.test(`${title} ${description}`);
-  if (politicsHint && classified.type === 'synthetic') {
+  if (politicsHint && classified.type === 'entertainment') {
     classified.type = 'political';
     classified.label = 'Political';
   }
@@ -364,6 +370,8 @@ async function normalize(article, index) {
   const claimUrl = article.claim_url || null;
   const reportedPlatforms = detectReportedPlatforms(`${title} ${description} ${articleUrl || ''}`);
   const reportedOn = reportedPlatforms.length ? reportedPlatforms.join(',') : null;
+  const modalities = deriveModalities(`${title} ${description}`);
+  const tags = deriveTags(`${title} ${description}`);
 
   let providerScores = [];
   if (index < config.detectionMaxItems) {
@@ -393,6 +401,11 @@ async function normalize(article, index) {
     language: article.language || null,
     published_at: publishedAt,
     status: 'reported_as_synthetic',
+    modalities,
+    tags,
+    harm_level: deriveHarmLevel(blended.confidence, `${title} ${description}`),
+    source_priority: deriveSourcePriority(sourceDomain),
+    incident_key: buildIncidentKey(title, classified.type, publishedAt),
   };
 }
 

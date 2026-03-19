@@ -491,6 +491,7 @@
   .df-badge-synthetic { background: #e8f4ec; color: #1a4a28; }
   .df-badge-audio { background: #f5eaf8; color: #4a1a60; }
   .df-badge-culture { background: #fdf1e7; color: #7b4a1f; }
+  .df-badge-entertainment { background: #f5eaf8; color: #4a1a60; }
 
   .df-ticker {
     position: sticky;
@@ -569,9 +570,7 @@
 
   .b-pol { background: #f5f0ea; color: #5a3e28; }
   .b-fraud { background: #fce8e8; color: #7a2020; }
-  .b-celeb { background: #e8eef8; color: #1a3660; }
-  .b-synth { background: #e8f4ec; color: #1a4a28; }
-  .b-audio { background: #f5eaf8; color: #4a1a60; }
+  .b-ent { background: #f5eaf8; color: #4a1a60; }
 </style>
 
 <div class="df-root">
@@ -604,10 +603,7 @@
     <button class="df-filter-btn active" onclick="filterCards('all', this)">All</button>
     <button class="df-filter-btn" onclick="filterCards('political', this)">Political</button>
     <button class="df-filter-btn" onclick="filterCards('fraud', this)">Fraud</button>
-    <button class="df-filter-btn" onclick="filterCards('celeb', this)">Celebrity</button>
-    <button class="df-filter-btn" onclick="filterCards('culture', this)">Culture & arts</button>
-    <button class="df-filter-btn" onclick="filterCards('synthetic', this)">Synthetic image</button>
-    <button class="df-filter-btn" onclick="filterCards('audio', this)">Voice clone</button>
+    <button class="df-filter-btn" onclick="filterCards('entertainment', this)">Entertainment</button>
   </div>
 
   <div class="df-resources">
@@ -668,10 +664,10 @@
 <script>
 const fallbackCards = [
   { type:'political', badge:'df-badge-political', label:'Political', title:'World leader fabricated in manufactured crisis video', platform:'Telegram', ratio:'4/3', isNew:true, color:'#f5f0ea', imageUrl:'' },
-  { type:'celeb', badge:'df-badge-celeb', label:'Celebrity', title:'Actress placed in fabricated advertisement without consent', platform:'Instagram', ratio:'3/4', isNew:false, color:'#eaeef5', imageUrl:'' },
+  { type:'entertainment', badge:'df-badge-entertainment', label:'Entertainment', title:'Actress placed in fabricated advertisement without consent', platform:'Instagram', ratio:'3/4', isNew:false, color:'#f5eaf8', imageUrl:'' },
   { type:'fraud', badge:'df-badge-fraud', label:'Fraud', title:'CEO voice clone used to authorise high-value wire transfer', platform:'Phone call', ratio:'1/1', isNew:true, color:'#faeaea', imageUrl:'' },
-  { type:'synthetic', badge:'df-badge-synthetic', label:'Synthetic image', title:'Manufactured protest image spread ahead of election', platform:'X', ratio:'16/9', isNew:false, color:'#eaf4ee', imageUrl:'' },
-  { type:'audio', badge:'df-badge-audio', label:'Voice clone', title:'Synthetic audio of politician falsely announcing resignation', platform:'WhatsApp', ratio:'1/1', isNew:true, color:'#f5eaf8', imageUrl:'' }
+  { type:'political', badge:'df-badge-political', label:'Political', title:'Manufactured protest image spread ahead of election', platform:'X', ratio:'16/9', isNew:false, color:'#eaf4ee', imageUrl:'' },
+  { type:'entertainment', badge:'df-badge-entertainment', label:'Entertainment', title:'Synthetic audio of politician falsely announcing resignation', platform:'WhatsApp', ratio:'1/1', isNew:true, color:'#f5eaf8', imageUrl:'' }
 ];
 
 let liveCards = [...fallbackCards];
@@ -695,28 +691,19 @@ let tickerInitialized = false;
 const typeToCardBadge = {
   political: 'df-badge-political',
   fraud: 'df-badge-fraud',
-  celeb: 'df-badge-celeb',
-  culture: 'df-badge-culture',
-  synthetic: 'df-badge-synthetic',
-  audio: 'df-badge-audio',
+  entertainment: 'df-badge-entertainment',
 };
 
 const typeToLabel = {
   political: 'Political',
   fraud: 'Fraud',
-  celeb: 'Celebrity',
-  culture: 'Culture & arts',
-  synthetic: 'Synthetic image',
-  audio: 'Voice clone',
+  entertainment: 'Entertainment',
 };
 
 const typeToColor = {
   political: '#f5f0ea',
   fraud: '#faeaea',
-  celeb: '#eaeef5',
-  culture: '#fdf4ec',
-  synthetic: '#eaf4ee',
-  audio: '#f5eaf8',
+  entertainment: '#f5eaf8',
 };
 
 function safeText(v) {
@@ -734,8 +721,7 @@ function agoText(iso) {
 }
 
 function ratioFromType(type) {
-  if (type === 'celeb') return '3/4';
-  if (type === 'synthetic') return '16/9';
+  if (type === 'entertainment') return '3/4';
   if (type === 'political') return '4/3';
   return '1/1';
 }
@@ -811,7 +797,7 @@ function canonicalUrl(url) {
 }
 
 function dedupeCards(cards) {
-  const typeRank = { audio: 6, fraud: 5, political: 4, celeb: 3, culture: 2, synthetic: 1 };
+  const typeRank = { fraud: 6, political: 5, entertainment: 4 };
   const byUrl = new Map();
   const byTitle = new Map();
   const titleFingerprint = (value) =>
@@ -929,18 +915,14 @@ function renderTicker() {
 
 function mapIncident(incident, index) {
   const headline = `${incident.title || ''} ${incident.summary || ''}`.toLowerCase();
-  let type = incident.category || 'synthetic';
+  let type = incident.category || 'entertainment';
+  if (['audio', 'celeb', 'culture', 'synthetic'].includes(type)) type = 'entertainment';
+  if (!['political', 'fraud', 'entertainment'].includes(type)) type = 'entertainment';
   // Keep backend category as source of truth; only apply high-confidence overrides.
-  if (
-    /(voice clone|cloned voice|ai voice|synthetic voice|voice deepfake|audio deepfake|deepfake audio|vocal clone|soundalike|mimic(?:ked|ry)? voice)/.test(headline) ||
-    (/(song|music|track|record label|artist|singer|beyonc|sony music)/.test(headline) &&
-      /(deepfake|deep fake|ai[- ]generated|synthetic|fake audio|voice)/.test(headline))
-  ) {
-    type = 'audio';
-  } else if (/(scam|fraud|impersonation|wire transfer|extortion|phishing|bank)/.test(headline)) {
+  if (/(scam|fraud|impersonation|wire transfer|extortion|phishing|bank)/.test(headline)) {
     type = 'fraud';
   } else if (
-    type === 'synthetic' &&
+    type === 'entertainment' &&
     /(election|government|minister|campaign|parliament|senate|president|council|councillor|propaganda|state media|lawmaker|politician)/.test(headline)
   ) {
     type = 'political';
@@ -964,7 +946,7 @@ function mapIncident(incident, index) {
   };
   return {
     type,
-    badge: typeToCardBadge[type] || 'df-badge-synthetic',
+    badge: typeToCardBadge[type] || 'df-badge-entertainment',
     label,
     title: incident.title || 'Untitled incident',
     summary: incident.summary || '',
