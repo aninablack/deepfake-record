@@ -192,6 +192,21 @@ function pickClaimUrl(candidateLinks = []) {
   return null;
 }
 
+function pickBestArticleUrl(primaryLink, candidateLinks = []) {
+  const canonicalPrimary = canonicalizeUrl(primaryLink);
+  const links = Array.isArray(candidateLinks) ? candidateLinks : [];
+  const isGoogleLike = (u) => /(news\.google\.com|googleusercontent\.com|gstatic\.com)/i.test(String(u || ""));
+  for (const raw of links) {
+    const candidate = canonicalizeUrl(raw);
+    if (!candidate) continue;
+    if (candidate === canonicalPrimary) continue;
+    if (!/^https?:\/\//i.test(candidate)) continue;
+    if (isGoogleLike(candidate)) continue;
+    return candidate;
+  }
+  return canonicalPrimary;
+}
+
 async function fetchRssArticles() {
   const feeds = splitCsv(config.rssFeeds);
   const records = [];
@@ -202,7 +217,7 @@ async function fetchRssArticles() {
       const xml = await res.text();
       const parsed = parseRssItems(xml).slice(0, config.rssMaxItemsPerFeed);
       for (const item of parsed) {
-        const canonicalLink = canonicalizeUrl(item.link);
+        const canonicalLink = pickBestArticleUrl(item.link, item.links || []);
         records.push({
           title: item.title,
           url: canonicalLink,
