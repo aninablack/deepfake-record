@@ -394,6 +394,33 @@
     overflow: hidden;
   }
 
+  .df-no-image-wrap {
+    width: 100%;
+    height: 100%;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    text-align: center;
+  }
+
+  .df-no-image-label {
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #777;
+  }
+
+  .df-no-image-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 24px;
+    line-height: 1.1;
+    color: #111;
+    max-width: 92%;
+  }
+
   .df-card-meta {
     padding: 10px 12px 12px;
     border-top: 0.5px solid #eee;
@@ -717,9 +744,11 @@ function ratioFromType(type) {
   return '1/1';
 }
 
-function imageHtml(url) {
-  if (!url) return '<div style="font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#777;">No image available</div>';
-  return `<img src="${safeText(url)}" alt="Incident image" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.replaceWith(Object.assign(document.createElement('div'),{textContent:'Image unavailable',style:'font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#777;'}));"/>`;
+function imageHtml(url, title) {
+  const safeTitle = safeText(title || '');
+  const placeholder = `<div class="df-no-image-wrap"><div class="df-no-image-label">Image unavailable</div><div class="df-no-image-title">${safeTitle}</div></div>`;
+  if (!url) return placeholder;
+  return `<img src="${safeText(url)}" alt="Incident image" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;" onerror="this.insertAdjacentHTML('afterend', '${placeholder.replace(/'/g, "\\'")}'); this.remove();"/>`;
 }
 
 function filterCards(type, btn) {
@@ -794,7 +823,7 @@ function renderGallery() {
   document.getElementById('gallery').innerHTML = list.map((c) => `
     <div class="df-card" data-url="${safeText(c.articleUrl || '')}">
       <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">
-        ${imageHtml(c.imageUrl)}
+        ${imageHtml(c.imageUrl, c.title)}
         <div class="df-visual-tag ${safeText(c.imageTagClass || 'df-visual-documented')}">${safeText(c.imageTag || 'Documented')}</div>
         ${c.isNew ? '<div class="df-new-tag">New</div>' : ''}
       </div>
