@@ -882,8 +882,18 @@ function dedupeCards(cards) {
       .join(' ');
 
   const pickBetter = (prev, next) => {
-    const prevScore = (typeRank[prev.type] || 0) + (Number(prev.confidence) || 0);
-    const nextScore = (typeRank[next.type] || 0) + (Number(next.confidence) || 0);
+    const hasRealImage = (card) => {
+      const u = String(card.imageUrl || '').toLowerCase().trim();
+      if (!u) return 0;
+      if (u.includes('image.pollinations.ai')) return 0;
+      return 1;
+    };
+    const sourceQuality = (card) => {
+      const s = String(card.source || '').toLowerCase();
+      return s === 'news.google.com' ? 0 : 1;
+    };
+    const prevScore = (typeRank[prev.type] || 0) + (Number(prev.confidence) || 0) + hasRealImage(prev) * 1.5 + sourceQuality(prev) * 0.75;
+    const nextScore = (typeRank[next.type] || 0) + (Number(next.confidence) || 0) + hasRealImage(next) * 1.5 + sourceQuality(next) * 0.75;
     if (nextScore !== prevScore) return nextScore > prevScore ? next : prev;
     const prevTime = new Date(prev.published_at || 0).getTime();
     const nextTime = new Date(next.published_at || 0).getTime();
