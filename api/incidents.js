@@ -281,15 +281,33 @@ module.exports = async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 80), 200);
     const poolLimit = Math.min(Math.max(limit * 8, 300), 1200);
+    const googlePoolLimit = Math.max(20, Math.floor(poolLimit * 0.25));
+    const nonGooglePoolLimit = Math.max(120, poolLimit - googlePoolLimit);
     const client = getAnonClient();
 
-    const { data, error } = await client
+    const nonGoogleReq = client
       .from("incidents")
       .select("id,source_id,title,summary,category,category_label,confidence,platform,source_domain,source_type,claim_url,reported_on,article_url,image_url,image_type,rights_status,usage_note,published_at,status,incident_key,source_priority")
+      .neq("source_domain", "news.google.com")
       .order("published_at", { ascending: false })
-      .limit(poolLimit);
+      .limit(nonGooglePoolLimit);
 
-    if (error) throw error;
+    const googleReq = client
+      .from("incidents")
+      .select("id,source_id,title,summary,category,category_label,confidence,platform,source_domain,source_type,claim_url,reported_on,article_url,image_url,image_type,rights_status,usage_note,published_at,status,incident_key,source_priority")
+      .eq("source_domain", "news.google.com")
+      .order("published_at", { ascending: false })
+      .limit(googlePoolLimit);
+
+    const [{ data: nonGoogleData, error: nonGoogleError }, { data: googleData, error: googleError }] = await Promise.all([
+      nonGoogleReq,
+      googleReq,
+    ]);
+
+    if (nonGoogleError) throw nonGoogleError;
+    if (googleError) throw googleError;
+
+    const data = [...(nonGoogleData || []), ...(googleData || [])];
 
     const deduped = dedupeAndFilter(data || []);
     const enriched = await enrichMissingImages(deduped);
