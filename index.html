@@ -262,6 +262,40 @@
     column-gap: 20px;
   }
 
+  .df-resources {
+    border-bottom: 1px solid #111;
+    padding: 18px 32px 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+  }
+
+  .df-resource-head {
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #666;
+    margin-bottom: 8px;
+  }
+
+  .df-resource-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+  }
+
+  .df-resource-links a {
+    font-size: 12px;
+    color: #111;
+    text-decoration: none;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 1px;
+  }
+
+  .df-resource-links a:hover {
+    border-bottom-color: #111;
+  }
+
   @media (max-width: 700px) {
     .df-gallery { columns: 2; padding: 16px; }
     .df-hero { grid-template-columns: 1fr; }
@@ -276,6 +310,7 @@
     }
     .df-masthead { padding: 14px 16px; }
     .df-filters { padding: 10px 16px; }
+    .df-resources { grid-template-columns: 1fr; padding: 14px 16px; }
   }
 
   .df-card {
@@ -449,6 +484,31 @@
     <button class="df-filter-btn" onclick="filterCards('celeb', this)">Celebrity</button>
     <button class="df-filter-btn" onclick="filterCards('synthetic', this)">Synthetic image</button>
     <button class="df-filter-btn" onclick="filterCards('audio', this)">Voice clone</button>
+  </div>
+
+  <div class="df-resources">
+    <div>
+      <div class="df-resource-head">Data Sources</div>
+      <div class="df-resource-links">
+        <a href="https://www.gdeltproject.org/" target="_blank" rel="noopener noreferrer">GDELT Project</a>
+        <a href="https://news.google.com/" target="_blank" rel="noopener noreferrer">Google News</a>
+        <a href="https://www.snopes.com/" target="_blank" rel="noopener noreferrer">Snopes</a>
+        <a href="https://www.politifact.com/" target="_blank" rel="noopener noreferrer">PolitiFact</a>
+        <a href="https://fullfact.org/" target="_blank" rel="noopener noreferrer">Full Fact</a>
+        <a href="https://www.reddit.com/" target="_blank" rel="noopener noreferrer">Reddit</a>
+      </div>
+    </div>
+    <div>
+      <div class="df-resource-head">Verify Images & AI</div>
+      <div class="df-resource-links">
+        <a href="https://images.google.com/" target="_blank" rel="noopener noreferrer">Google Images / Lens</a>
+        <a href="https://tineye.com/" target="_blank" rel="noopener noreferrer">TinEye Reverse Image</a>
+        <a href="https://fotoforensics.com/" target="_blank" rel="noopener noreferrer">FotoForensics</a>
+        <a href="https://metadata2go.com/" target="_blank" rel="noopener noreferrer">Metadata2Go</a>
+        <a href="https://isitai.com/" target="_blank" rel="noopener noreferrer">IsItAI</a>
+        <a href="https://huggingface.co/spaces" target="_blank" rel="noopener noreferrer">Hugging Face Spaces</a>
+      </div>
+    </div>
   </div>
 
   <div class="df-gallery" id="gallery"></div>
