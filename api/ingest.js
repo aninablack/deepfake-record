@@ -297,6 +297,12 @@ async function normalize(article, index) {
     return null;
   }
   const classified = classifyIncident(`${title} ${article.domain || ''} ${article.language || ''}`);
+  // Backward-compatibility: some deployed databases still reject `culture`.
+  // Keep ingest resilient by downgrading culture to synthetic until migration is confirmed.
+  if (classified.type === 'culture') {
+    classified.type = 'synthetic';
+    classified.label = 'Synthetic image';
+  }
   const politicsHint = /(propaganda|government|minister|election|state media|campaign|parliament|senate|president)/i.test(`${title} ${description}`);
   if (politicsHint && classified.type === 'synthetic') {
     classified.type = 'political';
