@@ -766,7 +766,7 @@ function imageHtml(url, title, summary = '', category = '') {
   const safeCategory = safeText(category || '');
   const normalizedUrl = String(url || '').trim();
   const hasSourceImage = normalizedUrl && !/^(null|undefined|none|n\/a)$/i.test(normalizedUrl);
-  const source = hasSourceImage ? proxiedImageUrl(normalizedUrl) : generatedFallbackImageFromContext(title, summary, category);
+  const source = hasSourceImage ? proxiedImageUrl(normalizedUrl) : categoryIllustrationImage(category);
   const origin = hasSourceImage ? 'documented' : 'illustrative';
   return `<img src="${safeText(source)}" alt="Incident image" data-fallback-title="${safeTitle}" data-fallback-summary="${safeSummary}" data-fallback-category="${safeCategory}" data-image-origin="${origin}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"/>`;
 }
@@ -798,6 +798,31 @@ function generatedFallbackImageFromContext(title, summary, category) {
   return `https://image.pollinations.ai/prompt/${prompt}?width=800&height=600&nologo=true`;
 }
 
+function categoryIllustrationImage(category) {
+  const key = String(category || '').toLowerCase();
+  const palette = {
+    fraud: ['#f6eceb', '#d9a3a3', '#8c3a3a'],
+    political: ['#ecf1f7', '#9ab2cf', '#3f5f86'],
+    entertainment: ['#f3ecf8', '#c6a6db', '#5d2e81'],
+  };
+  const [bg1, bg2, accent] = palette[key] || palette.entertainment;
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 800 600'>
+    <defs>
+      <linearGradient id='g' x1='0' y1='0' x2='1' y2='1'>
+        <stop offset='0%' stop-color='${bg1}'/>
+        <stop offset='100%' stop-color='${bg2}'/>
+      </linearGradient>
+    </defs>
+    <rect width='800' height='600' fill='url(#g)'/>
+    <circle cx='620' cy='160' r='180' fill='${accent}' opacity='0.12'/>
+    <circle cx='180' cy='500' r='220' fill='${accent}' opacity='0.10'/>
+    <rect x='120' y='210' width='560' height='14' rx='7' fill='${accent}' opacity='0.35'/>
+    <rect x='160' y='260' width='480' height='14' rx='7' fill='${accent}' opacity='0.28'/>
+    <rect x='210' y='310' width='380' height='14' rx='7' fill='${accent}' opacity='0.22'/>
+  </svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
 function handleImageError(imgEl) {
   if (!imgEl || !imgEl.parentNode) return;
   if (imgEl.dataset.retried !== '1') {
@@ -805,7 +830,7 @@ function handleImageError(imgEl) {
     const title = imgEl.getAttribute('data-fallback-title') || '';
     const summary = imgEl.getAttribute('data-fallback-summary') || '';
     const category = imgEl.getAttribute('data-fallback-category') || '';
-    imgEl.src = generatedFallbackImageFromContext(title, summary, category);
+    imgEl.src = categoryIllustrationImage(category);
     imgEl.dataset.imageOrigin = 'illustrative';
     return;
   }
