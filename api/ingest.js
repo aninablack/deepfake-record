@@ -325,6 +325,8 @@ function classifyContextTopic(text) {
 
 async function normalize(article, index) {
   const title = (article.title || '').trim();
+  const sourceType = article.source_type || 'news';
+  const isFactcheck = sourceType === 'factcheck';
   const description =
     article.description ||
     (article.seendate ? `Seen ${article.seendate}` : '') + (article.sourcecountry ? ` · ${article.sourcecountry}` : '');
@@ -341,11 +343,14 @@ async function normalize(article, index) {
   if (!passesStrictRelevance(article, title, description)) {
     return null;
   }
-  if (!isIncidentCandidate(article, title, description)) {
+  if (!isFactcheck && !isIncidentCandidate(article, title, description)) {
     return null;
   }
   // Tighten generic news intake to avoid unrelated AI/culture stories.
-  if ((article.source_type || 'news') === 'news' && !isTitleDeepfakeSpecific(title)) {
+  if (sourceType === 'news' && !isTitleDeepfakeSpecific(title)) {
+    return null;
+  }
+  if (isFactcheck && !hasStrongDeepfakeSignal(`${title} ${description} ${article.url || ''}`)) {
     return null;
   }
   if (isContextOnlyArticle(`${title} ${description} ${article.url || ''}`)) {
@@ -367,7 +372,6 @@ async function normalize(article, index) {
   const image = await resolveImage(article);
   const imageUrl = image.url;
   const publishedAt = parseSeenDate(article.seendate);
-  const sourceType = article.source_type || 'news';
   const claimUrl = article.claim_url || null;
   const reportedPlatforms = detectReportedPlatforms(`${title} ${description} ${articleUrl || ''}`);
   const reportedOn = reportedPlatforms.length ? reportedPlatforms.join(',') : null;
