@@ -121,7 +121,18 @@ function dedupeAndFilter(rows) {
     if (!hasDeepfakeSignal(hay) && !isAudioTagged) continue;
     const urlKey = canonicalUrl(row.article_url);
     const titleKey = normalizeTitle(row.title);
-    const next = { ...row, category: classifyCategory(row), image_url: toProxyUrl(row.image_url) };
+    const isGenericGoogleThumb =
+      String(row.source_domain || "").toLowerCase() === "news.google.com" &&
+      /lh3\.googleusercontent\.com/i.test(String(row.image_url || ""));
+
+    const next = {
+      ...row,
+      category: classifyCategory(row),
+      image_url: isGenericGoogleThumb ? "" : toProxyUrl(row.image_url),
+      image_type: isGenericGoogleThumb ? "illustrative" : row.image_type,
+      rights_status: isGenericGoogleThumb ? "unknown" : row.rights_status,
+      usage_note: isGenericGoogleThumb ? "Google aggregator thumbnail omitted; no article-specific evidence image." : row.usage_note,
+    };
 
     const incidentKey = String(row.incident_key || "").trim();
     if (incidentKey) {
@@ -270,7 +281,7 @@ function rebalanceSources(rows, limit) {
     for (const row of items) {
       if (selected.length >= limit) break;
       if (selected.find((x) => x.id === row.id)) continue;
-      take(row);
+      if (canTake(row)) take(row);
     }
   }
 
