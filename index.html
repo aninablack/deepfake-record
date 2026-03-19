@@ -734,8 +734,19 @@ function imageHtml(url, title) {
   return `<img src="${safeText(normalizedUrl)}" alt="Incident image" data-fallback-title="${safeTitle}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"/>`;
 }
 
+function generatedFallbackImage(title) {
+  const prompt = encodeURIComponent(`editorial abstract synthetic media still minimal white background ${String(title || '').slice(0, 140)}`);
+  return `https://image.pollinations.ai/prompt/${prompt}?width=800&height=600&nologo=true`;
+}
+
 function handleImageError(imgEl) {
   if (!imgEl || !imgEl.parentNode) return;
+  if (imgEl.dataset.retried !== '1') {
+    imgEl.dataset.retried = '1';
+    const title = imgEl.getAttribute('data-fallback-title') || '';
+    imgEl.src = generatedFallbackImage(title);
+    return;
+  }
   const title = imgEl.getAttribute('data-fallback-title') || '';
   const fallback = document.createElement('div');
   fallback.className = 'df-no-image-wrap';
