@@ -788,24 +788,8 @@ function dedupeCards(cards) {
   return unique;
 }
 
-function isRelevantCard(card) {
-  const title = String(card.title || '').toLowerCase();
-  const strictNeedles = [
-    'deepfake',
-    'deep fake',
-    'voice clone',
-    'face swap',
-    'synthetic media',
-    'fake video',
-    'fake audio',
-    'ai porn',
-    'manipulated media',
-  ];
-  return strictNeedles.some((n) => title.includes(n));
-}
-
 function renderGallery() {
-  const cards = getActiveCards().filter(isRelevantCard);
+  const cards = getActiveCards();
   const list = filter === 'all' ? cards : cards.filter((c) => c.type === filter);
   document.getElementById('gallery').innerHTML = list.map((c) => `
     <div class="df-card" data-url="${safeText(c.articleUrl || '')}">
