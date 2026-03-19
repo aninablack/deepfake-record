@@ -554,6 +554,20 @@
     font-weight: 500;
   }
 
+  .df-doc-tag {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: rgba(17, 17, 17, 0.84);
+    color: #fff;
+    font-size: 8px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    font-weight: 600;
+    z-index: 2;
+  }
+
   .df-visual-tag {
     position: absolute;
     top: 8px;
@@ -668,9 +682,7 @@
 
   <div class="df-legend">
     <div class="df-legend-text">
-      <strong>Documented</strong> = image published in reporting/research about the incident. &nbsp;
-      <strong>Illustrative</strong> = synthetic placeholder used for context and design, not evidence. &nbsp;
-      <strong>Illustrative</strong> visuals are placeholders, not evidence.
+      <strong>Documented</strong> = image published in reporting/research about the incident.
     </div>
   </div>
 
@@ -742,9 +754,9 @@ function agoText(iso) {
 }
 
 function ratioFromType(type) {
-  if (type === 'entertainment') return '3/4';
+  if (type === 'entertainment') return '4/3';
   if (type === 'political') return '4/3';
-  return '1/1';
+  return '4/3';
 }
 
 function imageHtml(url, title) {
@@ -896,7 +908,7 @@ function renderGallery() {
       <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">
         ${imageHtml(c.imageUrl, c.title)}
         <div class="df-visual-tag ${safeText(c.overlayTagClass || 'df-visual-category-entertainment')}">${safeText(c.overlayTag || c.label || 'Entertainment')}</div>
-        ${c.isNew ? '<div class="df-new-tag">New</div>' : ''}
+        <div class="df-doc-tag">Documented</div>
       </div>
       <div class="df-card-meta">
         <div class="df-card-type">${safeText(c.label)}</div>
@@ -904,7 +916,6 @@ function renderGallery() {
         <div class="df-card-platform">${safeText(c.platform)}</div>
         <div class="df-card-line">Publisher: ${safeText(c.source || 'Unknown')}</div>
         ${c.articleUrl ? `<div class="df-card-line">Article: <a class="df-card-link" href="${safeText(c.articleUrl)}" target="_blank" rel="noopener noreferrer">Open source</a></div>` : ''}
-        <div class="df-card-visual">Visual classification: ${safeText(c.imageLabel || 'Documented incident image')} · Rights: ${safeText(c.rightsLabel || 'Link-only')}</div>
         <div class="df-card-badge ${c.badge}">${safeText(c.label)}</div>
       </div>
     </div>`).join('');
@@ -945,12 +956,6 @@ function mapIncident(incident, index) {
     type = 'political';
   }
   const label = typeToLabel[type] || 'Synthetic image';
-  const imageTypeMap = {
-    documented: 'Documented incident image',
-  };
-  const imageTagMap = {
-    documented: { tag: 'Documented', klass: 'df-visual-documented' },
-  };
   const categoryTagClassMap = {
     political: 'df-visual-category-political',
     fraud: 'df-visual-category-fraud',
@@ -985,9 +990,6 @@ function mapIncident(incident, index) {
           : 'GDELT / News RSS',
     claimUrl: incident.claim_url || '',
     reportedOn: incident.reported_on || '',
-    imageLabel: imageTypeMap[incident.image_type] || 'Documented incident image',
-    imageTag: (imageTagMap[incident.image_type] || imageTagMap.documented).tag,
-    imageTagClass: (imageTagMap[incident.image_type] || imageTagMap.documented).klass,
     overlayTag: label,
     overlayTagClass: categoryTagClassMap[type] || 'df-visual-category-entertainment',
     rightsLabel: rightsMap[incident.rights_status] || 'Unknown',
