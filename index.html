@@ -760,13 +760,15 @@ function ratioFromType(type) {
   return '4/3';
 }
 
-function imageHtml(url, title) {
+function imageHtml(url, title, summary = '', category = '') {
   const safeTitle = safeText(title || '');
+  const safeSummary = safeText(summary || '');
+  const safeCategory = safeText(category || '');
   const normalizedUrl = String(url || '').trim();
   const hasSourceImage = normalizedUrl && !/^(null|undefined|none|n\/a)$/i.test(normalizedUrl);
   const source = hasSourceImage ? proxiedImageUrl(normalizedUrl) : generatedFallbackImage(title);
   const origin = hasSourceImage ? 'documented' : 'generated';
-  return `<img src="${safeText(source)}" alt="Incident image" data-fallback-title="${safeTitle}" data-image-origin="${origin}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"/>`;
+  return `<img src="${safeText(source)}" alt="Incident image" data-fallback-title="${safeTitle}" data-fallback-summary="${safeSummary}" data-fallback-category="${safeCategory}" data-image-origin="${origin}" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"/>`;
 }
 
 function proxiedImageUrl(url) {
@@ -778,13 +780,15 @@ function proxiedImageUrl(url) {
 }
 
 function generatedFallbackImage(title) {
-  const prompt = encodeURIComponent(`editorial abstract synthetic media still minimal white background ${String(title || '').slice(0, 140)}`);
+  const prompt = encodeURIComponent(`editorial news image about ${String(title || '').slice(0, 160)}`);
   return `https://image.pollinations.ai/prompt/${prompt}?width=800&height=600&nologo=true`;
 }
 
-function secondaryFallbackImage(title) {
-  const seed = encodeURIComponent(String(title || 'deepfake-incident').toLowerCase().replace(/\s+/g, '-').slice(0, 64));
-  return `https://picsum.photos/seed/${seed}/800/600`;
+function generatedFallbackImageFromContext(title, summary, category) {
+  const prompt = encodeURIComponent(
+    `news-style image, ${String(category || 'entertainment')} deepfake incident, ${String(title || '').slice(0, 120)}, ${String(summary || '').slice(0, 120)}`
+  );
+  return `https://image.pollinations.ai/prompt/${prompt}?width=800&height=600&nologo=true`;
 }
 
 function handleImageError(imgEl) {
@@ -792,14 +796,9 @@ function handleImageError(imgEl) {
   if (imgEl.dataset.retried !== '1') {
     imgEl.dataset.retried = '1';
     const title = imgEl.getAttribute('data-fallback-title') || '';
-    imgEl.src = generatedFallbackImage(title);
-    imgEl.dataset.imageOrigin = 'generated';
-    return;
-  }
-  if (imgEl.dataset.retriedSecondary !== '1') {
-    imgEl.dataset.retriedSecondary = '1';
-    const title = imgEl.getAttribute('data-fallback-title') || '';
-    imgEl.src = secondaryFallbackImage(title);
+    const summary = imgEl.getAttribute('data-fallback-summary') || '';
+    const category = imgEl.getAttribute('data-fallback-category') || '';
+    imgEl.src = generatedFallbackImageFromContext(title, summary, category);
     imgEl.dataset.imageOrigin = 'generated';
     return;
   }
@@ -955,7 +954,7 @@ function renderGallery() {
   document.getElementById('gallery').innerHTML = list.map((c) => `
     <div class="df-card" data-url="${safeText(c.articleUrl || '')}">
       <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">
-        ${imageHtml(c.imageUrl, c.title)}
+        ${imageHtml(c.imageUrl, c.title, c.summary, c.label)}
         <div class="df-visual-tag ${safeText(c.overlayTagClass || 'df-visual-category-entertainment')}">${safeText(c.overlayTag || c.label || 'Entertainment')}</div>
         ${c.docTag ? `<div class="df-doc-tag">${safeText(c.docTag)}</div>` : ''}
       </div>
