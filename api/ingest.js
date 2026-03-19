@@ -539,29 +539,52 @@ module.exports = async (_req, res) => {
   try {
     const client = getServiceClient();
     let raw = [];
-    let warning = null;
+    const warnings = [];
     try {
       raw = await fetchGdelt();
     } catch (err) {
       if (String(err.message || '').includes('GDELT request failed (429)')) {
-        warning = 'Primary GDELT feed rate-limited; run skipped safely.';
+        warnings.push('Primary GDELT feed rate-limited; run skipped safely.');
         raw = [];
       } else {
         throw err;
       }
     }
     if (raw.length === 0) {
-      const gdeltFallback = await fetchGdeltContext();
+      let gdeltFallback = [];
+      try {
+        gdeltFallback = await fetchGdeltContext();
+      } catch {
+        gdeltFallback = [];
+      }
       if (gdeltFallback.length > 0) {
         raw = gdeltFallback.map((item) => ({ ...item, source_type: item.source_type || 'news' }));
-        warning = warning
-          ? `${warning} Using fallback GDELT context feed.`
-          : 'Using fallback GDELT context feed.';
+        warnings.push('Using fallback GDELT context feed.');
       }
     }
-    const rawContext = await fetchGdeltContext();
-    const rssRaw = await fetchRssArticles();
-    const redditRaw = await fetchRedditArticles();
+    let rawContext = [];
+    let rssRaw = [];
+    let redditRaw = [];
+
+    try {
+      rawContext = await fetchGdeltContext();
+    } catch {
+      rawContext = [];
+      warnings.push('Context feed fetch failed; continuing without context records.');
+    }
+    try {
+      rssRaw = await fetchRssArticles();
+    } catch {
+      rssRaw = [];
+      warnings.push('RSS fetch failed; continuing with remaining sources.');
+    }
+    try {
+      redditRaw = await fetchRedditArticles();
+    } catch {
+      redditRaw = [];
+      warnings.push('Reddit fetch failed; continuing with remaining sources.');
+    }
+
     const mergedRaw = [...raw, ...rssRaw, ...redditRaw];
     const normalized = await Promise.all(mergedRaw.map((item, idx) => normalize(client, item, idx)));
     const incidents = dedupeIncidents(normalized.filter(Boolean));
@@ -600,7 +623,7 @@ module.exports = async (_req, res) => {
       context_fetched: rawContext.length,
       context_upserted: contextResult.inserted,
       archived_events_logged: eventsResult.inserted || 0,
-      warning,
+      warning: warnings.length ? warnings.join(' ') : null,
       at: new Date().toISOString(),
     });
   } catch (error) {
