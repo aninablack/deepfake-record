@@ -693,6 +693,7 @@ let filter = 'all';
 let mode = 'live';
 let liveTotal = 0;
 let verifiedTotal = 0;
+let tickerInitialized = false;
 
 const typeToCardBadge = {
   political: 'df-badge-political',
@@ -900,6 +901,7 @@ function attachCardClicks() {
 
 function renderTicker() {
   document.getElementById('ticker').innerHTML = tickerItems.map((t) => `<span class="df-ticker-item">${safeText(t)}<span class="df-ticker-sep">·</span></span>`).join('');
+  tickerInitialized = true;
 }
 
 function mapIncident(incident, index) {
@@ -999,7 +1001,7 @@ async function loadLiveData() {
       scannedCounter = statsPayload.scanned_total || scannedCounter;
       updateHeroCounters();
 
-      tickerItems = [
+      const nextTickerItems = [
         `${liveTotal.toLocaleString()} live incidents logged`,
         `${verifiedTotal.toLocaleString()} verified archive incidents`,
         `${scannedCounter.toLocaleString()} items scanned`,
@@ -1013,9 +1015,12 @@ async function loadLiveData() {
         `Top platform: ${statsPayload.top_platform || 'Unknown'}`,
         'No manual approval queue',
       ];
+      if (!tickerInitialized) {
+        tickerItems = nextTickerItems;
+      }
     }
   } catch (error) {
-    tickerItems = [
+    const nextTickerItems = [
       'Live connection unavailable',
       'Showing fallback dataset',
       'Check Supabase env keys',
@@ -1023,6 +1028,9 @@ async function loadLiveData() {
       'Live connection unavailable',
       'Showing fallback dataset',
     ];
+    if (!tickerInitialized) {
+      tickerItems = nextTickerItems;
+    }
   }
 
   if (!verifiedCards.length) {
@@ -1031,7 +1039,7 @@ async function loadLiveData() {
   }
 
   renderGallery();
-  renderTicker();
+  if (!tickerInitialized) renderTicker();
 }
 
 function updateHeroCounters() {
