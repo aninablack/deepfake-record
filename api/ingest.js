@@ -6,6 +6,7 @@ const {
   detectReportedPlatforms,
   isContextOnlyArticle,
   isDeepfakeRelevant,
+  isTitleDeepfakeSpecific,
 } = require('../lib/classify');
 const { resolveImageUrl } = require('../lib/placeholders');
 const { scoreWithProviders, blendConfidence } = require('../lib/detectors');
@@ -273,6 +274,10 @@ async function normalize(article, index) {
     article.description ||
     (article.seendate ? `Seen ${article.seendate}` : '') + (article.sourcecountry ? ` · ${article.sourcecountry}` : '');
   if (!isDeepfakeRelevant(`${title} ${description} ${article.url || ''}`)) {
+    return null;
+  }
+  // Tighten generic news intake to avoid unrelated AI/culture stories.
+  if ((article.source_type || 'news') === 'news' && !isTitleDeepfakeSpecific(title)) {
     return null;
   }
   if (isContextOnlyArticle(`${title} ${description} ${article.url || ''}`)) {
