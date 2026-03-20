@@ -321,25 +321,76 @@ async function fetchRssArticles() {
 
 async function fetchRedditArticles() {
   const redditUser = String(process.env.REDDIT_USERNAME || '').trim();
+  const redditClientId = String(process.env.REDDIT_CLIENT_ID || '').trim();
+  const redditClientSecret = String(process.env.REDDIT_CLIENT_SECRET || '').trim();
+  const redditPassword = String(process.env.REDDIT_PASSWORD || '').trim();
   const userAgent = redditUser
     ? `web:deepfake-record:v1.0 (by /u/${redditUser})`
     : 'web:deepfake-record:v1.0 (by /u/deepfake_record_bot)';
+  const canUseOAuth = !!(redditUser && redditClientId && redditClientSecret && redditPassword);
   const subs = splitCsv(config.redditSubreddits);
   const records = [];
   const statuses = [];
+  let oauthToken = null;
+
+  if (canUseOAuth) {
+    try {
+      const authHeader = Buffer.from(`${redditClientId}:${redditClientSecret}`).toString('base64');
+      const tokenRes = await fetch('https://www.reddit.com/api/v1/access_token', {
+        method: 'POST',
+        headers: {
+          authorization: `Basic ${authHeader}`,
+          'content-type': 'application/x-www-form-urlencoded',
+          'user-agent': userAgent,
+        },
+        body: new URLSearchParams({
+          grant_type: 'password',
+          username: redditUser,
+          password: redditPassword,
+        }).toString(),
+      });
+      statuses.push({ subreddit: '_oauth', endpoint: 'token', status: tokenRes.status, ok: tokenRes.ok });
+      if (tokenRes.ok) {
+        const tokenJson = await tokenRes.json();
+        oauthToken = String(tokenJson?.access_token || '').trim() || null;
+      }
+    } catch (err) {
+      statuses.push({
+        subreddit: '_oauth',
+        endpoint: 'token',
+        status: 0,
+        ok: false,
+        error: String(err?.message || 'oauth token fetch failed'),
+      });
+    }
+  } else {
+    statuses.push({
+      subreddit: '_oauth',
+      endpoint: 'config',
+      status: 0,
+      ok: false,
+      error: 'missing_reddit_oauth_env',
+    });
+  }
+
+  const baseHost = oauthToken ? 'https://oauth.reddit.com' : 'https://www.reddit.com';
+  const baseHeaders = oauthToken
+    ? { 'user-agent': userAgent, authorization: `Bearer ${oauthToken}` }
+    : { 'user-agent': userAgent };
+
   for (const sub of subs) {
-    const searchUrl = `https://www.reddit.com/r/${encodeURIComponent(sub)}/search.json?restrict_sr=1&sort=new&limit=${config.redditMaxItemsPerSubreddit}&q=${encodeURIComponent(config.redditQuery)}`;
-    const newUrl = `https://www.reddit.com/r/${encodeURIComponent(sub)}/new.json?limit=${config.redditMaxItemsPerSubreddit}`;
+    const searchUrl = `${baseHost}/r/${encodeURIComponent(sub)}/search.json?restrict_sr=1&sort=new&limit=${config.redditMaxItemsPerSubreddit}&q=${encodeURIComponent(config.redditQuery)}`;
+    const newUrl = `${baseHost}/r/${encodeURIComponent(sub)}/new.json?limit=${config.redditMaxItemsPerSubreddit}`;
     try {
       let children = [];
-      const searchRes = await fetch(searchUrl, { headers: { 'user-agent': userAgent } });
+      const searchRes = await fetch(searchUrl, { headers: baseHeaders });
       statuses.push({ subreddit: sub, endpoint: 'search', status: searchRes.status, ok: searchRes.ok });
       if (searchRes.ok) {
         const searchJson = await searchRes.json();
         children = searchJson?.data?.children || [];
       }
       if (children.length === 0) {
-        const newRes = await fetch(newUrl, { headers: { 'user-agent': userAgent } });
+        const newRes = await fetch(newUrl, { headers: baseHeaders });
         statuses.push({ subreddit: sub, endpoint: 'new', status: newRes.status, ok: newRes.ok });
         if (!newRes.ok) continue;
         const newJson = await newRes.json();
