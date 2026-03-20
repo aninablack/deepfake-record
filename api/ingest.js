@@ -42,6 +42,28 @@ function splitCsv(value) {
     .filter(Boolean);
 }
 
+function rotateFeedsForRun(feeds) {
+  const list = Array.isArray(feeds) ? feeds.filter(Boolean) : [];
+  if (!list.length) return [];
+  const perRun = Math.max(1, Math.min(Number(config.rssFeedsPerRun || list.length), list.length));
+  if (perRun >= list.length) return list;
+  const windowMinutes = Math.max(1, Number(config.rssRotationWindowMinutes || 15));
+  const bucket = Math.floor(Date.now() / (windowMinutes * 60 * 1000));
+  const start = (bucket * perRun) % list.length;
+  const out = [];
+  for (let i = 0; i < perRun; i += 1) {
+    out.push(list[(start + i) % list.length]);
+  }
+  return out;
+}
+
+function shouldFetchContextThisRun() {
+  const interval = Math.max(15, Number(config.contextFetchIntervalMinutes || 60));
+  const now = new Date();
+  const minutesSinceMidnight = now.getUTCHours() * 60 + now.getUTCMinutes();
+  return minutesSinceMidnight % interval < 15;
+}
+
 function shouldExcludeDomain(domain) {
   const hardBlocked = new Set([
     'bignewsnetwork.com',
@@ -347,7 +369,7 @@ async function resolveGooglePublisherUrl(url, candidateLinks = []) {
 }
 
 async function fetchRssArticles() {
-  const feeds = splitCsv(config.rssFeeds);
+  const feeds = rotateFeedsForRun(splitCsv(config.rssFeeds));
   const records = [];
   for (const feedUrl of feeds) {
     try {
@@ -387,7 +409,7 @@ async function fetchRssArticles() {
       // Skip failed feed and continue.
     }
   }
-  return records;
+  return { records, feed_count: feeds.length };
 }
 
 async function fetchGdeltByQuery(query, maxrecords) {
@@ -673,19 +695,25 @@ module.exports = async (_req, res) => {
     }
     let rawContext = [];
     let rssRaw = [];
+    let rssFeedCount = 0;
     const redditRaw = [];
     const redditStatuses = [];
 
-    try {
-      rawContext = await fetchGdeltContext();
-    } catch {
-      rawContext = [];
-      warnings.push('Context feed fetch failed; continuing without context records.');
+    if (shouldFetchContextThisRun()) {
+      try {
+        rawContext = await fetchGdeltContext();
+      } catch {
+        rawContext = [];
+        warnings.push('Context feed fetch failed; continuing without context records.');
+      }
     }
     try {
-      rssRaw = await fetchRssArticles();
+      const rssResult = await fetchRssArticles();
+      rssRaw = Array.isArray(rssResult?.records) ? rssResult.records : [];
+      rssFeedCount = Number(rssResult?.feed_count || 0);
     } catch {
       rssRaw = [];
+      rssFeedCount = 0;
       warnings.push('RSS fetch failed; continuing with remaining sources.');
     }
     const mergedRaw = [...raw, ...rssRaw, ...redditRaw];
@@ -722,6 +750,7 @@ module.exports = async (_req, res) => {
       upserted: result.inserted,
       fetched_gdelt: raw.length,
       fetched_rss: rssRaw.length,
+      fetched_rss_feeds: rssFeedCount,
       fetched_reddit: redditRaw.length,
       reddit_statuses: redditStatuses,
       context_fetched: rawContext.length,
