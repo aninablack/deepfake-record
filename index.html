@@ -582,6 +582,23 @@
     font-weight: 600;
     z-index: 2;
   }
+  .df-image-source-badge {
+    position: absolute;
+    left: 8px;
+    bottom: 8px;
+    max-width: calc(100% - 16px);
+    background: rgba(17, 17, 17, 0.78);
+    color: #f5f5f5;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    pointer-events: none;
+  }
 
   .df-visual-tag {
     position: absolute;
@@ -793,6 +810,11 @@ function imageHtml(url, title, summary = '', category = '') {
   return `<img src="${safeText(source)}" alt="Incident image" data-fallback-title="${safeTitle}" data-fallback-summary="${safeSummary}" data-fallback-category="${safeCategory}" data-image-origin="documented" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"/>`;
 }
 
+function imageSourceBadge(sourceDomain) {
+  const label = String(sourceDomain || '').trim() || 'source unknown';
+  return `<div class="df-image-source-badge">${safeText(label)}</div>`;
+}
+
 function isLikelyLogoImage(url) {
   const u = String(url || '').toLowerCase();
   if (!u) return true;
@@ -996,6 +1018,7 @@ function renderGallery() {
     <div class="df-card" data-url="${safeText(c.articleUrl || '')}">
       <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">
         ${imageHtml(c.imageUrl, c.title, c.summary, c.label)}
+        ${c.imageUrl ? imageSourceBadge(c.source || '') : ''}
       </div>
       <div class="df-card-meta">
         <div class="df-card-type">${safeText(c.label)}</div>
