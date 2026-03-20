@@ -1031,7 +1031,8 @@ function isDeepfakeCard(card) {
 function renderGallery() {
   const activeCards = getActiveCards();
   const cards = activeCards;
-  const list = filter === 'all' ? cards : cards.filter((c) => c.type === filter);
+  const linkableCards = cards.filter((c) => !!String(c.articleUrl || c.claimUrl || '').trim());
+  const list = filter === 'all' ? linkableCards : linkableCards.filter((c) => c.type === filter);
   document.getElementById('gallery').innerHTML = list.map((c) => `
     <div class="df-card" data-url="${safeText(c.articleUrl || c.claimUrl || '')}">
       <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">
@@ -1232,7 +1233,8 @@ async function loadLiveData() {
 
 function updateHeroCounters() {
   const activeCards = getActiveCards();
-  const visibleCards = filter === 'all' ? activeCards : activeCards.filter((c) => c.type === filter);
+  const linkableCards = activeCards.filter((c) => !!String(c.articleUrl || c.claimUrl || '').trim());
+  const visibleCards = filter === 'all' ? linkableCards : linkableCards.filter((c) => c.type === filter);
   const usingVerified = mode === 'verified' && verifiedTotal > 0;
   const fallbackLiveTotal = liveCards.length || visibleCards.length || 0;
   const fallbackVerifiedTotal = verifiedCards.length || visibleCards.length || 0;
