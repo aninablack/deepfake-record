@@ -979,10 +979,10 @@ function renderGallery() {
     <div class="df-card" data-url="${safeText(c.articleUrl || '')}">
       <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">
         ${imageHtml(c.imageUrl, c.title, c.summary, c.label)}
-        <div class="df-visual-tag ${safeText(c.overlayTagClass || 'df-visual-category-entertainment')}">${safeText(c.overlayTag || c.label || 'Entertainment')}</div>
         ${c.docTag ? `<div class="df-doc-tag">${safeText(c.docTag)}</div>` : ''}
       </div>
       <div class="df-card-meta">
+        <div class="df-card-type">${safeText(c.label)}</div>
         <div class="df-card-title">${safeText(c.title)}</div>
         <div class="df-card-platform">${safeText(c.platform)}</div>
         <div class="df-card-line">Publisher: ${safeText(c.source || 'Unknown')}</div>
