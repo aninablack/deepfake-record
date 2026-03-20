@@ -457,6 +457,14 @@ module.exports = async (req, res) => {
       .order("published_at", { ascending: false })
       .limit(googlePoolLimit);
 
+    const factcheckReq = client
+      .from("incidents")
+      .select(selectFields)
+      .eq("source_type", "factcheck")
+      .not("source_domain", "ilike", "%google.com%")
+      .order("published_at", { ascending: false })
+      .limit(Math.max(120, Math.floor(limit * 4)));
+
     const sourceFallbackSpecs = [
       { key: "snopes", column: "source_domain", op: "ilike", value: "%snopes.com%" },
       { key: "politifact", column: "source_domain", op: "ilike", value: "%politifact.com%" },
@@ -476,17 +484,19 @@ module.exports = async (req, res) => {
       return q;
     });
 
-    const [{ data: nonGoogleData, error: nonGoogleError }, { data: googleData, error: googleError }, ...fallbackResults] = await Promise.all([
+    const [{ data: nonGoogleData, error: nonGoogleError }, { data: googleData, error: googleError }, { data: factcheckData, error: factcheckError }, ...fallbackResults] = await Promise.all([
       nonGoogleReq,
       googleReq,
+      factcheckReq,
       ...sourceFallbackReqs,
     ]);
 
     if (nonGoogleError) throw nonGoogleError;
     if (googleError) throw googleError;
+    if (factcheckError) throw factcheckError;
 
     const fallbackRows = fallbackResults.flatMap((r) => (r && !r.error && Array.isArray(r.data) ? r.data : []));
-    const data = [...(nonGoogleData || []), ...(googleData || []), ...fallbackRows];
+    const data = [...(factcheckData || []), ...(nonGoogleData || []), ...(googleData || []), ...fallbackRows];
 
     const deduped = dedupeAndFilter(data || []);
     const rebalanced = rebalanceSources(deduped, limit);
