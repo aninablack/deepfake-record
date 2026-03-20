@@ -363,19 +363,19 @@
   @media (max-width: 980px) {
     .df-gallery { columns: 1; padding: 18px 16px; }
     .df-resources { grid-template-columns: 1fr; }
-    .df-hero { grid-template-columns: 1fr; gap: 20px; padding: 28px 16px 20px; }
+    .df-hero { grid-template-columns: minmax(0, 1fr) auto; gap: 16px; padding: 24px 16px 16px; align-items: start; }
     .df-counter-block {
-      width: 100%;
-      border-left: none;
-      border-top: 1px solid #ddd;
-      padding-left: 0;
-      padding-top: 14px;
+      width: auto;
+      border-left: 1px solid #ddd;
+      border-top: none;
+      padding-left: 14px;
+      padding-top: 0;
       min-height: auto;
-      align-items: flex-start;
-      justify-self: stretch;
+      align-items: flex-end;
+      justify-self: end;
     }
-    .df-counter-num { font-size: 72px; text-align: left; }
-    .df-counter-label { margin-top: 10px; text-align: left; letter-spacing: 0.12em; }
+    .df-counter-num { font-size: 56px; text-align: right; line-height: 0.9; }
+    .df-counter-label { margin-top: 6px; text-align: right; letter-spacing: 0.08em; }
     .df-filters {
       padding: 10px 16px;
       flex-wrap: wrap;
@@ -395,34 +395,35 @@
 
   @media (max-width: 700px) {
     .df-gallery { columns: 1; padding: 14px 12px; }
-    .df-hero { grid-template-columns: 1fr; gap: 16px; }
-    .df-counter-block { padding-top: 12px; }
-    .df-hero-headline { font-size: clamp(44px, 13vw, 58px); line-height: 1.08; }
-    .df-counter-num { font-size: 58px; }
-    .df-logo { font-size: 12px; letter-spacing: 0.24em; }
-    .df-live-pill { font-size: 11px; letter-spacing: 0.12em; }
-    .df-hero-kicker { font-size: 12px; letter-spacing: 0.16em; }
-    .df-counter-label { font-size: 14px; letter-spacing: 0.12em; }
+    .df-hero { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
+    .df-counter-block { padding-top: 0; min-width: 100px; }
+    .df-hero-headline { font-size: clamp(56px, 15vw, 72px); line-height: 1.02; }
+    .df-counter-num { font-size: 52px; }
+    .df-logo { font-size: 12px; letter-spacing: 0.2em; }
+    .df-live-pill { font-size: 11px; letter-spacing: 0.1em; }
+    .df-hero-kicker { font-size: 12px; letter-spacing: 0.14em; }
+    .df-counter-label { font-size: 12px; letter-spacing: 0.08em; }
     .df-masthead { padding: 14px 16px; }
     .df-filters { padding: 10px 16px; }
     .df-resources { grid-template-columns: 1fr; padding: 10px 16px 12px; }
     .df-legend { padding: 10px 16px 12px; }
     .df-filter-btn {
-      font-size: 14px;
-      letter-spacing: 0.08em;
+      font-size: 15px;
+      letter-spacing: 0.05em;
       margin-right: 8px;
       padding: 8px 8px 8px 0;
       line-height: 1.15;
     }
-    .df-resource-head { font-size: 13px; letter-spacing: 0.14em; }
-    .df-resource-count { font-size: 12px; }
-    .df-resource-links a { font-size: 15px; }
-    .df-legend-text { font-size: 16px; }
-    .df-card-type { font-size: 13px; letter-spacing: 0.16em; }
-    .df-card-title { font-size: 17px; }
-    .df-card-line, .df-card-platform { font-size: 15px; line-height: 1.35; }
-    .df-card-link { font-size: 15px; }
-    .df-ticker-item { font-size: 12px; letter-spacing: 0.06em; }
+    .df-resource-head { font-size: 14px; letter-spacing: 0.1em; }
+    .df-resource-count { font-size: 13px; }
+    .df-resource-links a { font-size: 16px; }
+    .df-legend-text { font-size: 17px; }
+    .df-card-type { font-size: 14px; letter-spacing: 0.14em; }
+    .df-card-title { font-size: 20px; line-height: 1.24; }
+    .df-card-line, .df-card-platform { font-size: 17px; line-height: 1.35; }
+    .df-card-link { font-size: 17px; }
+    .df-ticker-item { font-size: 13px; letter-spacing: 0.05em; }
+    .df-footer-note { font-size: 12px; line-height: 1.5; }
   }
 
   .df-card {
@@ -790,6 +791,13 @@
 </div>
 
 <script>
+if (!document.querySelector('meta[name="viewport"]')) {
+  const viewportMeta = document.createElement('meta');
+  viewportMeta.name = 'viewport';
+  viewportMeta.content = 'width=device-width, initial-scale=1, viewport-fit=cover';
+  document.head.appendChild(viewportMeta);
+}
+
 const fallbackCards = [
   { type:'political', badge:'df-badge-political', label:'Political', title:'World leader fabricated in manufactured crisis video', platform:'Telegram', ratio:'4/3', isNew:true, color:'#f5f0ea', imageUrl:'' },
   { type:'entertainment', badge:'df-badge-entertainment', label:'Entertainment', title:'Actress placed in fabricated advertisement without consent', platform:'Instagram', ratio:'3/4', isNew:false, color:'#f5eaf8', imageUrl:'' },
