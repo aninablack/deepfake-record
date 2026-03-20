@@ -69,6 +69,7 @@ function passesStrictRelevance(article, title, description) {
   const full = `${title} ${description} ${article.url || ''}`;
   const titleSignal = hasStrongDeepfakeSignal(title);
   const fullSignal = hasStrongDeepfakeSignal(full);
+  const relevance = deepfakeRelevanceScore(title, description);
 
   // Never ingest if no strong deepfake signal exists anywhere.
   if (!titleSignal && !fullSignal) return false;
@@ -77,7 +78,11 @@ function passesStrictRelevance(article, title, description) {
   if (/(opinion|editorial|analysis)/i.test(title) && !titleSignal) return false;
 
   // Raise quality bar globally to reduce false positives.
-  if (deepfakeRelevanceScore(title, description) < 2) return false;
+  if (sourceType === 'factcheck') {
+    if (relevance < 1) return false;
+  } else if (relevance < 2) {
+    return false;
+  }
 
   // News sources should still carry a strong signal in title OR body.
   if (sourceType === 'news' && !titleSignal && !fullSignal) return false;
@@ -492,7 +497,7 @@ async function normalize(client, article, index) {
   if (isFactcheck && !hasStrongDeepfakeSignal(`${title} ${description} ${article.url || ''}`)) {
     return null;
   }
-  if (isContextOnlyArticle(`${title} ${description} ${article.url || ''}`)) {
+  if (!isFactcheck && isContextOnlyArticle(`${title} ${description} ${article.url || ''}`)) {
     return null;
   }
   const classified = classifyIncident(`${title} ${description} ${article.domain || ''} ${article.language || ''}`);

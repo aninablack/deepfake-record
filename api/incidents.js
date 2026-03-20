@@ -471,7 +471,8 @@ module.exports = async (req, res) => {
     const data = [...(nonGoogleData || []), ...(googleData || []), ...fallbackRows];
 
     const deduped = dedupeAndFilter(data || []);
-    const clean = deduped.slice(0, limit).map((row) => {
+    const rebalanced = rebalanceSources(deduped, limit);
+    const clean = rebalanced.map((row) => {
       const rawImage = String(row.image_url || "").toLowerCase();
       const shouldStripGenericGoogle =
         isGoogleDomain(row.source_domain) &&
