@@ -169,6 +169,11 @@ function dedupeAndFilter(rows) {
     const hay = `${row.title || ""} ${row.summary || ""} ${row.article_url || ""}`;
     const domain = normalizeDomain(row.source_domain);
     if (blockedDomains.has(domain)) continue;
+    // Hide low-value homepage-only factcheck rows from live feed.
+    const homepageOnly = isHomepageLikeUrl(row.article_url);
+    const hasClaim = !!String(row.claim_url || "").trim();
+    const sourceType = String(row.source_type || "").toLowerCase();
+    if (homepageOnly && sourceType === "factcheck" && !hasClaim) continue;
     const isAudioTagged =
       String(row.category || "").toLowerCase() === "audio" ||
       /voice clone|audio deepfake|synthetic voice/i.test(String(row.category_label || ""));
