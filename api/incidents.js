@@ -187,8 +187,10 @@ function dedupeAndFilter(rows) {
     const isGenericGoogleThumb =
       isGoogleDomain(row.source_domain) &&
       (/lh3\.googleusercontent\.com/i.test(rawImage) || /lh3\.googleusercontent\.com%2f/i.test(rawImage));
-    const isBadThumb = isLowQualityThumb(rawImage) || isGenericGoogleThumb;
-    const isDocumented = !isBadThumb && String(row.image_type || "").toLowerCase() === "documented";
+    const isDocumentedSource =
+      String(row.image_type || "").toLowerCase() === "documented" && !!String(row.image_url || "").trim();
+    const isBadThumb = isGenericGoogleThumb || (!isDocumentedSource && isLowQualityThumb(rawImage));
+    const isDocumented = !isBadThumb && isDocumentedSource;
 
     const next = {
       ...row,
