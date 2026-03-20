@@ -374,6 +374,15 @@ async function normalize(client, article, index) {
   const description =
     article.description ||
     (article.seendate ? `Seen ${article.seendate}` : '') + (article.sourcecountry ? ` · ${article.sourcecountry}` : '');
+  const lowValueGuide = /(deepfakemaker|deepfake maker|how to|practical guide|guide to|tutorial|choosing the perfect|turn any clip|viral ai video|face swap)/i.test(
+    `${title} ${description}`
+  );
+  const strongIncidentSignal = /(victim|victimized|lawsuit|sued|arrest|charged|jailed|banned|ban|removed|takedown|scam|fraud|impersonation|child porn|non-consensual)/i.test(
+    `${title} ${description}`
+  );
+  if (lowValueGuide && !strongIncidentSignal) {
+    return null;
+  }
   if (shouldExcludeDomain(article.domain)) {
     return null;
   }

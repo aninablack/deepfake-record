@@ -1,5 +1,4 @@
 const { getAnonClient } = require("../lib/supabase");
-const { resolveImage } = require("../lib/placeholders");
 
 function toProxyUrl(url) {
   const raw = String(url || "").trim();
@@ -214,48 +213,6 @@ function dedupeAndFilter(rows) {
     .slice(0, 200);
 }
 
-async function enrichMissingImages(rows) {
-  const items = Array.isArray(rows) ? rows : [];
-  const out = [];
-  for (const row of items) {
-    const domain = normalizeDomain(row.source_domain);
-    // Never attempt enrichment from Google News aggregator URLs; they often return generic thumbs.
-    if (isGoogleDomain(domain)) {
-      out.push(row);
-      continue;
-    }
-    const hasImage = /^https?:\/\//i.test(String(row.image_url || "").trim());
-    if (hasImage) {
-      out.push(row);
-      continue;
-    }
-    const articleUrl = String(row.article_url || "").trim();
-    if (!articleUrl) {
-      out.push(row);
-      continue;
-    }
-    const resolved = await resolveImage({
-      title: row.title,
-      description: row.summary,
-      url: articleUrl,
-      image_url: "",
-      socialimage: "",
-    });
-    if (resolved.documented && resolved.url) {
-      out.push({
-        ...row,
-        image_url: toProxyUrl(resolved.url),
-        image_type: "documented",
-        rights_status: row.rights_status || "link_only",
-        usage_note: row.usage_note || "Editorial thumbnail from reporting source.",
-      });
-    } else {
-      out.push(row);
-    }
-  }
-  return out;
-}
-
 function rebalanceSources(rows, limit) {
   const items = Array.isArray(rows) ? rows : [];
   if (!items.length) return [];
@@ -386,8 +343,7 @@ module.exports = async (req, res) => {
     const data = [...(nonGoogleData || []), ...(googleData || [])];
 
     const deduped = dedupeAndFilter(data || []);
-    const enriched = await enrichMissingImages(deduped);
-    const clean = rebalanceSources(enriched, limit).map((row) => {
+    const clean = rebalanceSources(deduped, limit).map((row) => {
       const rawImage = String(row.image_url || "").toLowerCase();
       const shouldStripGenericGoogle =
         isGoogleDomain(row.source_domain) &&
