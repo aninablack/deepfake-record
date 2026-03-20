@@ -874,7 +874,8 @@ function imageHtml(url, title, summary = '', category = '') {
   const hasSourceImage =
     normalizedUrl &&
     !/^(null|undefined|none|n\/a)$/i.test(normalizedUrl) &&
-    !isLikelyLogoImage(normalizedUrl);
+    !isLikelyLogoImage(normalizedUrl) &&
+    !isLikelyAuthorImage(normalizedUrl);
   if (!hasSourceImage) {
     return `<div class="df-no-image-wrap"><div class="df-no-image-title">${safeTitle}</div></div>`;
   }
@@ -896,6 +897,16 @@ function isLikelyLogoImage(url) {
     /gstatic\.com\/images\/branding/.test(u) ||
     /news\.google\.com.*(logo|gnews|google-news)/.test(u) ||
     /(\bcbc\b.*default\.jpg|unindia|nonstoplocal|wgal\/top_image|gray-.*fallback-graphics)/.test(u)
+  );
+}
+
+function isLikelyAuthorImage(url) {
+  const u = String(url || '').toLowerCase();
+  if (!u) return false;
+  return (
+    /(^|\/)(author|authors|staff|writer|journalist|editor)(\/|$)/.test(u) ||
+    /(headshot|profile|avatar|bio-photo|portrait)/.test(u) ||
+    /politifact\.com\/wp-content\/uploads\/.*(staff|author|headshot|avatar|profile)/.test(u)
   );
 }
 
