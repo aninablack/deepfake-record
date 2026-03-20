@@ -370,30 +370,54 @@ module.exports = async (req, res) => {
     const googlePoolLimit = Math.max(20, Math.floor(poolLimit * 0.25));
     const nonGooglePoolLimit = Math.max(120, poolLimit - googlePoolLimit);
     const client = getAnonClient();
+    const selectFields =
+      "id,source_id,title,summary,category,category_label,confidence,platform,source_domain,source_type,claim_url,reported_on,article_url,image_url,image_type,rights_status,usage_note,published_at,status,incident_key,source_priority";
 
     const nonGoogleReq = client
       .from("incidents")
-      .select("id,source_id,title,summary,category,category_label,confidence,platform,source_domain,source_type,claim_url,reported_on,article_url,image_url,image_type,rights_status,usage_note,published_at,status,incident_key,source_priority")
+      .select(selectFields)
       .not("source_domain", "ilike", "%google.com%")
       .order("published_at", { ascending: false })
       .limit(nonGooglePoolLimit);
 
     const googleReq = client
       .from("incidents")
-      .select("id,source_id,title,summary,category,category_label,confidence,platform,source_domain,source_type,claim_url,reported_on,article_url,image_url,image_type,rights_status,usage_note,published_at,status,incident_key,source_priority")
+      .select(selectFields)
       .ilike("source_domain", "%google.com%")
       .order("published_at", { ascending: false })
       .limit(googlePoolLimit);
 
-    const [{ data: nonGoogleData, error: nonGoogleError }, { data: googleData, error: googleError }] = await Promise.all([
+    const sourceFallbackSpecs = [
+      { key: "snopes", column: "source_domain", op: "ilike", value: "%snopes.com%" },
+      { key: "politifact", column: "source_domain", op: "ilike", value: "%politifact.com%" },
+      { key: "afp", column: "source_domain", op: "ilike", value: "%factcheck.afp.com%" },
+      { key: "fullfact", column: "source_domain", op: "ilike", value: "%fullfact.org%" },
+      { key: "leadstories", column: "source_domain", op: "ilike", value: "%leadstories.com%" },
+      { key: "bellingcat", column: "source_domain", op: "ilike", value: "%bellingcat.com%" },
+      { key: "dfrlab", column: "source_domain", op: "ilike", value: "%dfrlab.org%" },
+      { key: "euvsdisinfo", column: "source_domain", op: "ilike", value: "%euvsdisinfo.eu%" },
+      { key: "reddit", column: "source_type", op: "eq", value: "social_report" },
+      { key: "gdelt", column: "source_type", op: "eq", value: "news" },
+      { key: "googlenews", column: "source_domain", op: "ilike", value: "%google.com%" },
+    ];
+    const sourceFallbackReqs = sourceFallbackSpecs.map((spec) => {
+      let q = client.from("incidents").select(selectFields).order("published_at", { ascending: false }).limit(1);
+      if (spec.op === "ilike") q = q.ilike(spec.column, spec.value);
+      if (spec.op === "eq") q = q.eq(spec.column, spec.value);
+      return q;
+    });
+
+    const [{ data: nonGoogleData, error: nonGoogleError }, { data: googleData, error: googleError }, ...fallbackResults] = await Promise.all([
       nonGoogleReq,
       googleReq,
+      ...sourceFallbackReqs,
     ]);
 
     if (nonGoogleError) throw nonGoogleError;
     if (googleError) throw googleError;
 
-    const data = [...(nonGoogleData || []), ...(googleData || [])];
+    const fallbackRows = fallbackResults.flatMap((r) => (r && !r.error && Array.isArray(r.data) ? r.data : []));
+    const data = [...(nonGoogleData || []), ...(googleData || []), ...fallbackRows];
 
     const deduped = dedupeAndFilter(data || []);
     const clean = rebalanceSources(deduped, limit).map((row) => {
