@@ -921,6 +921,15 @@ function attachImageFallbacks() {
     if (imgEl.dataset.boundError === '1') return;
     imgEl.dataset.boundError = '1';
     imgEl.addEventListener('error', () => handleImageError(imgEl));
+    imgEl.addEventListener('load', () => {
+      // Some publishers return 1x1/very small placeholders that are technically valid images.
+      // Treat those as invalid and fall back to title-based display.
+      const w = Number(imgEl.naturalWidth || 0);
+      const h = Number(imgEl.naturalHeight || 0);
+      if ((w > 0 && w < 120) || (h > 0 && h < 120)) {
+        handleImageError(imgEl);
+      }
+    });
     if (imgEl.complete && imgEl.naturalWidth === 0) {
       handleImageError(imgEl);
     }
