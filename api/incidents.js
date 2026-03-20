@@ -328,8 +328,8 @@ function rebalanceSources(rows, limit) {
 
 module.exports = async (req, res) => {
   try {
-    const limit = Math.min(Number(req.query.limit || 80), 200);
-    const poolLimit = Math.min(Math.max(limit * 8, 300), 1200);
+    const limit = Math.min(Number(req.query.limit || 120), 400);
+    const poolLimit = Math.min(Math.max(limit * 8, 500), 2400);
     const googlePoolLimit = Math.max(20, Math.floor(poolLimit * 0.25));
     const nonGooglePoolLimit = Math.max(120, poolLimit - googlePoolLimit);
     const client = getAnonClient();
@@ -372,11 +372,6 @@ module.exports = async (req, res) => {
         rights_status: "unknown",
         usage_note: "Google aggregator thumbnail omitted; no article-specific evidence image.",
       };
-    }).filter((row) => {
-      if (!isGoogleDomain(row.source_domain)) return true;
-      const hasImage = !!String(row.image_url || "").trim();
-      const documented = String(row.image_type || "").toLowerCase() === "documented";
-      return hasImage && documented;
     });
     res.status(200).json({ ok: true, incidents: clean });
   } catch (error) {
