@@ -430,6 +430,47 @@
     .df-footer-note { font-size: 12px; line-height: 1.5; }
   }
 
+  @media (max-width: 600px) {
+    .df-hero {
+      grid-template-columns: 1fr;
+      padding: 24px 16px 20px;
+      gap: 12px;
+    }
+    .df-hero-headline {
+      font-size: clamp(28px, 8vw, 38px);
+      line-height: 1.08;
+    }
+    .df-counter-block {
+      border-left: none;
+      border-top: 1px solid #ddd;
+      padding-left: 0;
+      padding-top: 14px;
+      width: 100%;
+      min-height: auto;
+      flex-direction: row;
+      align-items: baseline;
+      justify-content: flex-start;
+      gap: 10px;
+      min-width: 0;
+      margin-top: 0;
+    }
+    .df-counter-num {
+      font-size: 48px;
+      line-height: 1;
+    }
+    .df-counter-label {
+      font-size: 11px;
+      margin-top: 0;
+      text-align: left;
+      max-width: none;
+      white-space: nowrap;
+    }
+    .df-screen,
+    .df-screen-dots {
+      display: none;
+    }
+  }
+
   .df-card {
     break-inside: avoid;
     margin-bottom: 16px;
