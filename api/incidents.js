@@ -290,7 +290,7 @@ function rebalanceSources(rows, limit) {
   const sourceBucket = (row) => {
     const domain = normalizeDomain(row.source_domain || "");
     const sourceType = String(row.source_type || "").toLowerCase();
-    if (sourceType === "social_report" || domain === "reddit.com" || domain.endsWith(".reddit.com")) return "Reddit";
+    if (sourceType === "social_report" || domain === "reddit.com" || domain.endsWith(".reddit.com")) return "Social";
     if (domain.includes("news.google.com")) return "Google News";
     if (sourceType === "news" && !domain.includes("google")) return "GDELT Project";
     if (domain.includes("snopes.com")) return "Snopes";
@@ -349,7 +349,7 @@ function rebalanceSources(rows, limit) {
     "Bellingcat",
     "DFRLab",
     "EUvsDisinfo",
-    "Reddit",
+    "Social",
   ];
   for (const bucket of requiredBuckets) {
     if (selected.length >= limit) break;
@@ -439,7 +439,6 @@ module.exports = async (req, res) => {
       { key: "bellingcat", column: "source_domain", op: "ilike", value: "%bellingcat.com%" },
       { key: "dfrlab", column: "source_domain", op: "ilike", value: "%dfrlab.org%" },
       { key: "euvsdisinfo", column: "source_domain", op: "ilike", value: "%euvsdisinfo.eu%" },
-      { key: "reddit", column: "source_type", op: "eq", value: "social_report" },
       { key: "gdelt", column: "source_type", op: "eq", value: "news" },
       { key: "googlenews", column: "source_domain", op: "ilike", value: "%google.com%" },
     ];
