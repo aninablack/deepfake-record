@@ -18,7 +18,7 @@ function isWeakOrMissingThumb(url) {
 module.exports = async (req, res) => {
   try {
     const client = getServiceClient();
-    const limit = Math.min(Number(req.query.limit || 120), 300);
+    const limit = Math.min(Number(req.query.limit || 300), 800);
 
     const { data, error } = await client
       .from("incidents")
