@@ -81,7 +81,7 @@ function isExcludedByTitle(title) {
 }
 
 function hasStrongDeepfakeSignal(text) {
-  return /(deepfake|deep fake|voice clone|cloned voice|face swap|fake audio|fake video|ai porn|non-consensual|synthetic media)/i.test(
+  return /(deepfake|deep fake|voice clone|cloned voice|face swap|fake audio|fake video|ai porn|non-consensual|synthetic media|manipulated media|digital forgery|ai impersonation)/i.test(
     String(text || '')
   );
 }
@@ -93,8 +93,13 @@ function passesStrictRelevance(article, title, description) {
   const fullSignal = hasStrongDeepfakeSignal(full);
   const relevance = deepfakeRelevanceScore(title, description);
 
-  // Never ingest if no strong deepfake signal exists anywhere.
-  if (!titleSignal && !fullSignal) return false;
+  // For fact-check feeds, allow softer wording if relevance still indicates deepfake context.
+  if (sourceType === 'factcheck') {
+    if (!titleSignal && !fullSignal && relevance < 1) return false;
+  } else if (!titleSignal && !fullSignal) {
+    // News/social records still require explicit deepfake-style signal.
+    return false;
+  }
 
   // Opinion/editorial pieces must still be explicit in title to avoid generic policy content.
   if (/(opinion|editorial|analysis)/i.test(title) && !titleSignal) return false;
