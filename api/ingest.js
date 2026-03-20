@@ -590,7 +590,12 @@ function classifyContextTopic(text) {
   return 'Public Impact';
 }
 
-async function normalize(client, article, index) {
+function bumpDrop(dropCounters, key) {
+  if (!dropCounters) return;
+  dropCounters[key] = Number(dropCounters[key] || 0) + 1;
+}
+
+async function normalize(client, article, index, dropCounters = null) {
   const title = (article.title || '').trim();
   const sourceType = article.source_type || 'news';
   const isFactcheck = sourceType === 'factcheck';
@@ -604,38 +609,52 @@ async function normalize(client, article, index) {
     `${title} ${description}`
   );
   if (lowValueGuide && !strongIncidentSignal) {
+    bumpDrop(dropCounters, 'dropped_low_value_guide');
     return null;
   }
   if (shouldExcludeDomain(article.domain)) {
+    bumpDrop(dropCounters, 'dropped_excluded_domain');
     return null;
   }
   if (isExcludedByTitle(title)) {
+    bumpDrop(dropCounters, 'dropped_excluded_title');
     return null;
   }
   const fullText = `${title} ${description} ${article.url || ''}`;
   const factcheckCandidate =
     isFactcheck && (deepfakeRelevanceScore(title, description) >= 1 || hasStrongDeepfakeSignal(fullText));
   if (!isFactcheck && !isDeepfakeRelevant(fullText)) {
+    bumpDrop(dropCounters, 'dropped_not_deepfake_relevant');
     return null;
   }
   if (isFactcheck && !factcheckCandidate) {
+    bumpDrop(dropCounters, 'dropped_factcheck_candidate');
     return null;
   }
   if (!passesStrictRelevance(article, title, description)) {
+    bumpDrop(dropCounters, 'dropped_strict_relevance');
     return null;
   }
   if (!isFactcheck && !isIncidentCandidate(article, title, description)) {
+    bumpDrop(dropCounters, 'dropped_not_incident_candidate');
     return null;
   }
-  // Tighten generic news intake to avoid unrelated AI/culture stories.
-  if (sourceType === 'news' && !isTitleDeepfakeSpecific(title)) {
+  // Keep noise low but allow trusted/newsroom wording that is deepfake-relevant
+  // even when title phrasing is softer.
+  const titleSpecific = isTitleDeepfakeSpecific(title);
+  const strongSignal = hasStrongDeepfakeSignal(fullText);
+  const relevance = deepfakeRelevanceScore(title, description);
+  if (sourceType === 'news' && !titleSpecific && !strongSignal && relevance < 2) {
+    bumpDrop(dropCounters, 'dropped_news_title_specificity');
     return null;
   }
   // Fact-check sources are already curated; avoid over-pruning due to softer wording.
   if (isFactcheck && deepfakeRelevanceScore(title, description) < 1) {
+    bumpDrop(dropCounters, 'dropped_factcheck_relevance_floor');
     return null;
   }
   if (!isFactcheck && isContextOnlyArticle(`${title} ${description} ${article.url || ''}`)) {
+    bumpDrop(dropCounters, 'dropped_context_only');
     return null;
   }
   const classified = classifyIncident(`${title} ${description} ${article.domain || ''} ${article.language || ''}`);
@@ -660,6 +679,7 @@ async function normalize(client, article, index) {
   }
   if (isHomepageLikeUrl(articleUrl) && !isFactcheck) {
     // Skip low-quality homepage links for generic news, but allow curated fact-check feeds.
+    bumpDrop(dropCounters, 'dropped_homepage_news_url');
     return null;
   }
   const image = await resolveImage(article, { client });
@@ -672,6 +692,7 @@ async function normalize(client, article, index) {
 
   // Hard guard: never persist incidents without a resolvable article/claim URL.
   if (!String(articleUrl || '').trim() && !String(claimUrl || '').trim()) {
+    bumpDrop(dropCounters, 'dropped_link_guard');
     return null;
   }
 
@@ -874,8 +895,10 @@ module.exports = async (_req, res) => {
       warnings.push('RSS fetch failed; continuing with remaining sources.');
     }
     const mergedRaw = [...raw, ...rssRaw, ...redditRaw];
-    const normalized = await Promise.all(mergedRaw.map((item, idx) => normalize(client, item, idx)));
-    const deduped = dedupeIncidents(normalized.filter(Boolean));
+    const dropCounters = {};
+    const normalized = await Promise.all(mergedRaw.map((item, idx) => normalize(client, item, idx, dropCounters)));
+    const normalizedKept = normalized.filter(Boolean);
+    const deduped = dedupeIncidents(normalizedKept);
     const incidents = balanceIncidentsBySourceType(deduped);
     const contextArticles = await Promise.all(rawContext.map(async (article) => {
       const title = (article.title || '').trim();
@@ -904,6 +927,8 @@ module.exports = async (_req, res) => {
     res.status(200).json({
       ok: true,
       fetched: mergedRaw.length,
+      normalized_kept: normalizedKept.length,
+      normalized_dropped: mergedRaw.length - normalizedKept.length,
       deduped: deduped.length,
       balanced: incidents.length,
       upserted: result.inserted,
@@ -915,6 +940,7 @@ module.exports = async (_req, res) => {
       context_fetched: rawContext.length,
       context_upserted: contextResult.inserted,
       archived_events_logged: eventsResult.inserted || 0,
+      dropped: dropCounters,
       warning: warnings.length ? warnings.join(' ') : null,
       at: new Date().toISOString(),
     });
