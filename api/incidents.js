@@ -22,10 +22,7 @@ function isLowQualityThumb(url) {
   if (!u) return true;
   return (
     /lh3\.googleusercontent\.com/.test(u) ||
-    /default[-_]?image|placeholder|fallback-graphics|top_image|og[_-]?image|social[_-]?image|fbshare|site-share|share-image|brand[-_]?image|no-image|coming-soon/.test(
-      u
-    ) ||
-    /\/themes\/.*og-image|\/theme\/images\/fbshare/.test(u) ||
+    /favicon|apple-touch-icon|site-icon|wordmark|brandmark/.test(u) ||
     /logo|favicon|site-icon|wordmark|brandmark/.test(u)
   );
 }
