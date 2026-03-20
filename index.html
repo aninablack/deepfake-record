@@ -1024,6 +1024,7 @@ function renderGallery() {
         <div class="df-card-type">${safeText(c.label)}</div>
         <div class="df-card-title">${safeText(c.title)}</div>
         <div class="df-card-platform">${safeText(c.platform)}</div>
+        <div class="df-card-line">Ingest source: ${safeText((c.ingestSource || 'unknown').toUpperCase())}</div>
         <div class="df-card-line">Publisher: ${safeText(c.source || 'Unknown')}</div>
         ${c.articleUrl ? `<div class="df-card-line">Article: <a class="df-card-link" href="${safeText(c.articleUrl)}" target="_blank" rel="noopener noreferrer">Open source</a></div>` : ''}
       </div>
@@ -1099,6 +1100,15 @@ function mapIncident(incident, index) {
         : incident.source_type === 'factcheck'
           ? 'Fact-check RSS'
           : 'GDELT / News RSS',
+    ingestSource: incident.ingest_source || (
+      incident.source_type === 'social_report'
+        ? 'reddit'
+        : incident.source_type === 'factcheck'
+          ? 'rss'
+          : incident.source_type === 'news'
+            ? 'gdelt'
+            : 'unknown'
+    ),
     claimUrl: incident.claim_url || '',
     reportedOn: incident.reported_on || '',
     overlayTag: label,

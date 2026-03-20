@@ -130,6 +130,15 @@ function classifyCategory(row) {
   return "entertainment";
 }
 
+function deriveIngestSource(row) {
+  const sourceType = String(row.source_type || "").toLowerCase();
+  const domain = normalizeDomain(row.source_domain || "");
+  if (sourceType === "social_report" || domain.includes("reddit.com")) return "reddit";
+  if (sourceType === "factcheck") return "rss";
+  if (sourceType === "news") return "gdelt";
+  return "unknown";
+}
+
 function dedupeAndFilter(rows) {
   const byUrl = new Map();
   const byTitle = new Map();
@@ -444,13 +453,14 @@ module.exports = async (req, res) => {
       const shouldStripGenericGoogle =
         isGoogleDomain(row.source_domain) &&
         (/lh3\.googleusercontent\.com/i.test(rawImage) || /lh3\.googleusercontent\.com%2f/i.test(rawImage));
-      if (!shouldStripGenericGoogle) return row;
+      if (!shouldStripGenericGoogle) return { ...row, ingest_source: deriveIngestSource(row) };
       return {
         ...row,
         image_url: "",
         image_type: "illustrative",
         rights_status: "unknown",
         usage_note: "Google aggregator thumbnail omitted; no article-specific evidence image.",
+        ingest_source: deriveIngestSource(row),
       };
     });
     res.status(200).json({ ok: true, incidents: clean });
