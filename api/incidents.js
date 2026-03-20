@@ -244,6 +244,23 @@ function rebalanceSources(rows, limit) {
   let nonGoogleCount = 0;
   let factcheckCount = 0;
 
+  const sourceBucket = (row) => {
+    const domain = normalizeDomain(row.source_domain || "");
+    const sourceType = String(row.source_type || "").toLowerCase();
+    if (sourceType === "social_report" || domain === "reddit.com" || domain.endsWith(".reddit.com")) return "Reddit";
+    if (domain.includes("news.google.com")) return "Google News";
+    if (sourceType === "news" && !domain.includes("google")) return "GDELT Project";
+    if (domain.includes("snopes.com")) return "Snopes";
+    if (domain.includes("politifact.com")) return "PolitiFact";
+    if (domain.includes("factcheck.afp.com")) return "AFP Fact Check";
+    if (domain.includes("fullfact.org")) return "Full Fact";
+    if (domain.includes("leadstories.com")) return "Lead Stories";
+    if (domain.includes("bellingcat.com")) return "Bellingcat";
+    if (domain.includes("dfrlab.org") || domain.includes("medium.com")) return "DFRLab";
+    if (domain.includes("euvsdisinfo.eu")) return "EUvsDisinfo";
+    return "";
+  };
+
   const isLowQualityGoogleRow = (row) => {
     if (!isGoogleDomain(row.source_domain)) return false;
     const hasImage = !!String(row.image_url || "").trim();
@@ -276,6 +293,26 @@ function rebalanceSources(rows, limit) {
 
   const nonGoogleItems = items.filter((r) => !isGoogleDomain(r.source_domain));
   const googleItems = items.filter((r) => isGoogleDomain(r.source_domain) && !isLowQualityGoogleRow(r));
+
+  // Pass -1: ensure source diversity for key listed feeds when records are available.
+  const requiredBuckets = [
+    "GDELT Project",
+    "Google News",
+    "Snopes",
+    "PolitiFact",
+    "AFP Fact Check",
+    "Full Fact",
+    "Lead Stories",
+    "Bellingcat",
+    "DFRLab",
+    "EUvsDisinfo",
+    "Reddit",
+  ];
+  for (const bucket of requiredBuckets) {
+    if (selected.length >= limit) break;
+    const candidate = items.find((r) => sourceBucket(r) === bucket && canTake(r, { relaxGoogle: true, relaxFactcheck: true }));
+    if (candidate) take(candidate);
+  }
 
   // Pass 0: enforce non-Google minimum first when available.
   for (const row of nonGoogleItems) {
