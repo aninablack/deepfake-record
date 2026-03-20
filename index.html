@@ -891,7 +891,7 @@ function isLikelyLogoImage(url) {
   const u = String(url || '').toLowerCase();
   if (!u) return true;
   return (
-    /logo|favicon|apple-touch-icon|site-icon|icon|fb-icon|brandmark|wordmark|default[-_]?image|placeholder|fallback|og[_-]?image|social[_-]?image|fbshare|site-share|share-image|brand[-_]?image|no-image|coming-soon/.test(u) ||
+    /logo|favicon|apple-touch-icon|site-icon|fb-icon|brandmark|wordmark/.test(u) ||
     /\/themes\/.*og-image|\/theme\/images\/fbshare/.test(u) ||
     /gstatic\.com\/images\/branding/.test(u) ||
     /news\.google\.com.*(logo|gnews|google-news)/.test(u) ||
@@ -980,7 +980,7 @@ function attachImageFallbacks() {
       // Treat those as invalid and fall back to title-based display.
       const w = Number(imgEl.naturalWidth || 0);
       const h = Number(imgEl.naturalHeight || 0);
-      if ((w > 0 && w < 120) || (h > 0 && h < 120)) {
+      if ((w > 0 && w < 40) || (h > 0 && h < 40)) {
         handleImageError(imgEl);
       }
     });
