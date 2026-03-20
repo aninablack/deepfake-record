@@ -715,6 +715,50 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function balanceIncidentsBySourceType(incidents) {
+  const list = Array.isArray(incidents) ? incidents : [];
+  if (!list.length) return [];
+
+  const maxFactcheckShareRaw = Number(process.env.MAX_FACTCHECK_SHARE || 0.4);
+  const maxFactcheckShare = Number.isFinite(maxFactcheckShareRaw)
+    ? Math.min(0.8, Math.max(0.2, maxFactcheckShareRaw))
+    : 0.4;
+  const minFactcheckWhenNoNewsRaw = Number(process.env.MIN_FACTCHECK_WHEN_NO_NEWS || 24);
+  const minFactcheckWhenNoNews = Number.isFinite(minFactcheckWhenNoNewsRaw)
+    ? Math.max(0, Math.floor(minFactcheckWhenNoNewsRaw))
+    : 24;
+
+  const news = list.filter((i) => String(i.source_type || '').toLowerCase() === 'news');
+  const social = list.filter((i) => String(i.source_type || '').toLowerCase() === 'social_report');
+  const factcheck = list.filter((i) => String(i.source_type || '').toLowerCase() === 'factcheck');
+  const other = list.filter((i) => !['news', 'social_report', 'factcheck'].includes(String(i.source_type || '').toLowerCase()));
+
+  const required = [...news, ...social, ...other];
+
+  const factcheckScore = (row) => {
+    const confidence = Number(row.confidence) || 0;
+    const documented = String(row.image_type || '').toLowerCase() === 'documented' ? 1 : 0;
+    const hasLink = String(row.article_url || row.claim_url || '').trim() ? 1 : 0;
+    const published = new Date(row.published_at || 0).getTime() || 0;
+    return (documented * 1000) + (hasLink * 500) + Math.round(confidence * 100) + Math.round(published / 1e10);
+  };
+
+  const rankedFactcheck = [...factcheck].sort((a, b) => factcheckScore(b) - factcheckScore(a));
+
+  let factcheckCap = 0;
+  if (required.length === 0) {
+    factcheckCap = minFactcheckWhenNoNews;
+  } else {
+    factcheckCap = Math.floor((maxFactcheckShare / (1 - maxFactcheckShare)) * required.length);
+  }
+  const selectedFactcheck = rankedFactcheck.slice(0, Math.max(0, factcheckCap));
+
+  const balanced = [...required, ...selectedFactcheck].sort(
+    (a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()
+  );
+  return balanced;
+}
+
 async function upsertIncidents(client, incidents) {
   if (incidents.length === 0) return { inserted: 0 };
   const { error } = await client.from('incidents').upsert(incidents, { onConflict: 'source_id' });
@@ -814,7 +858,8 @@ module.exports = async (_req, res) => {
     }
     const mergedRaw = [...raw, ...rssRaw, ...redditRaw];
     const normalized = await Promise.all(mergedRaw.map((item, idx) => normalize(client, item, idx)));
-    const incidents = dedupeIncidents(normalized.filter(Boolean));
+    const deduped = dedupeIncidents(normalized.filter(Boolean));
+    const incidents = balanceIncidentsBySourceType(deduped);
     const contextArticles = await Promise.all(rawContext.map(async (article) => {
       const title = (article.title || '').trim();
       const sourceDomain = article.domain || 'unknown';
@@ -842,7 +887,8 @@ module.exports = async (_req, res) => {
     res.status(200).json({
       ok: true,
       fetched: mergedRaw.length,
-      deduped: incidents.length,
+      deduped: deduped.length,
+      balanced: incidents.length,
       upserted: result.inserted,
       fetched_gdelt: raw.length,
       fetched_rss: rssRaw.length,
