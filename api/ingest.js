@@ -165,25 +165,52 @@ function isHomepageLikeUrl(url) {
 }
 
 function dedupeIncidents(items) {
-  const unique = [];
-  const seenUrl = new Set();
-  const seenTitle = new Set();
-  for (const item of items) {
-    const canonicalUrl = canonicalizeUrl(item.article_url);
-    const cleanTitle = String(item.title || '')
+  const byUrl = new Map();
+  const byTitle = new Map();
+
+  const normalizedTitleKey = (title) =>
+    String(title || '')
       .toLowerCase()
       .replace(/[\|\-:]\s*(bbc|cnn|reuters|ap|associated press|news|live updates?).*$/i, '')
       .replace(/[^a-z0-9\s]/g, ' ')
       .replace(/\s+/g, ' ')
-      .trim();
-    const keyTitle = cleanTitle.split(' ').slice(0, 14).join(' ');
-    if (canonicalUrl && seenUrl.has(canonicalUrl)) continue;
-    if (keyTitle && seenTitle.has(keyTitle)) continue;
-    if (canonicalUrl) seenUrl.add(canonicalUrl);
-    if (keyTitle) seenTitle.add(keyTitle);
-    unique.push({ ...item, article_url: canonicalUrl || item.article_url });
+      .trim()
+      .split(' ')
+      .slice(0, 14)
+      .join(' ');
+
+  const priority = (item) => {
+    const t = String(item?.source_type || '').toLowerCase();
+    if (t === 'social_report') return 3;
+    if (t === 'factcheck') return 2;
+    if (t === 'news') return 1;
+    return 0;
+  };
+
+  const pick = (a, b) => {
+    const pa = priority(a);
+    const pb = priority(b);
+    if (pa !== pb) return pb > pa ? b : a;
+    const ta = new Date(a?.published_at || a?.seendate || 0).getTime();
+    const tb = new Date(b?.published_at || b?.seendate || 0).getTime();
+    return tb > ta ? b : a;
+  };
+
+  for (const item of items || []) {
+    const normalized = { ...item, article_url: canonicalizeUrl(item.article_url) || item.article_url };
+    const urlKey = canonicalizeUrl(normalized.article_url);
+    const titleKey = normalizedTitleKey(normalized.title);
+    if (urlKey) byUrl.set(urlKey, byUrl.has(urlKey) ? pick(byUrl.get(urlKey), normalized) : normalized);
+    if (titleKey) byTitle.set(titleKey, byTitle.has(titleKey) ? pick(byTitle.get(titleKey), normalized) : normalized);
   }
-  return unique;
+
+  const merged = new Map();
+  for (const item of byUrl.values()) merged.set(item.source_id || item.article_url || item.title, item);
+  for (const item of byTitle.values()) {
+    const key = item.source_id || item.article_url || item.title;
+    merged.set(key, merged.has(key) ? pick(merged.get(key), item) : item);
+  }
+  return Array.from(merged.values());
 }
 
 function matchTag(block, tag) {
