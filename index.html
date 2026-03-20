@@ -1147,6 +1147,16 @@ function buildVerifiedFromLive() {
 }
 
 async function loadLiveData() {
+  const parsePayload = async (requestResult) => {
+    if (requestResult.status !== 'fulfilled' || !requestResult.value) return { ok: false };
+    try {
+      if (!requestResult.value.ok) return { ok: false };
+      return await requestResult.value.json();
+    } catch {
+      return { ok: false };
+    }
+  };
+
   try {
     const bust = Date.now();
     const [incidentsReq, verifiedReq, statsReq] = await Promise.allSettled([
@@ -1155,9 +1165,9 @@ async function loadLiveData() {
       fetch(`/api/stats?t=${bust}`, { cache: 'no-store' }),
     ]);
 
-    const incidentsPayload = incidentsReq.status === 'fulfilled' ? await incidentsReq.value.json() : { ok: false };
-    const verifiedPayload = verifiedReq.status === 'fulfilled' ? await verifiedReq.value.json() : { ok: false };
-    const statsPayload = statsReq.status === 'fulfilled' ? await statsReq.value.json() : { ok: false };
+    const incidentsPayload = await parsePayload(incidentsReq);
+    const verifiedPayload = await parsePayload(verifiedReq);
+    const statsPayload = await parsePayload(statsReq);
 
     if (incidentsPayload.ok && Array.isArray(incidentsPayload.incidents) && incidentsPayload.incidents.length) {
       liveCards = incidentsPayload.incidents.map(mapIncident);
@@ -1175,7 +1185,6 @@ async function loadLiveData() {
       liveTotal = statsPayload.live_total || statsPayload.total || liveCards.length || liveTotal;
       verifiedTotal = statsPayload.verified_total || verifiedCards.length || verifiedTotal;
       scannedCounter = statsPayload.scanned_total || scannedCounter;
-      updateHeroCounters();
 
       const nextTickerItems = [
         `${liveTotal.toLocaleString()} live incidents logged`,
@@ -1204,9 +1213,17 @@ async function loadLiveData() {
     }
   }
 
+  if (!liveTotal) {
+    liveTotal = liveCards.length || liveTotal;
+  }
+
   if (!verifiedCards.length) {
     verifiedCards = buildVerifiedFromLive();
     verifiedTotal = verifiedCards.length;
+  }
+
+  if (!verifiedTotal) {
+    verifiedTotal = verifiedCards.length || verifiedTotal;
   }
 
   renderGallery();
@@ -1217,7 +1234,11 @@ function updateHeroCounters() {
   const activeCards = getActiveCards();
   const visibleCards = filter === 'all' ? activeCards : activeCards.filter((c) => c.type === filter);
   const usingVerified = mode === 'verified' && verifiedTotal > 0;
-  const totalValue = usingVerified ? verifiedTotal : liveTotal;
+  const fallbackLiveTotal = liveCards.length || visibleCards.length || 0;
+  const fallbackVerifiedTotal = verifiedCards.length || visibleCards.length || 0;
+  const totalValue = usingVerified
+    ? (verifiedTotal || fallbackVerifiedTotal)
+    : (liveTotal || fallbackLiveTotal);
   const value = totalValue;
   const label = `${usingVerified ? 'Verified incidents logged' : 'Incidents logged'} · ${visibleCards.length.toLocaleString()} shown`;
   const counterEl = document.getElementById('counter');
