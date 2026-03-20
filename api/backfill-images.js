@@ -11,6 +11,7 @@ function isWeakOrMissingThumb(url) {
   if (!value) return true;
   if (/lh3\.googleusercontent\.com/.test(value)) return true;
   if (/logo|favicon|apple-touch-icon|site-icon|brandmark|wordmark/.test(value)) return true;
+  if (/(default[-_]?image|placeholder|fallback-graphics|top_image|og[_-]?image|social[_-]?image|fbshare|site-share|share-image|brand[-_]?image|no-image|coming-soon)/.test(value)) return true;
   return false;
 }
 
