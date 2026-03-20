@@ -240,7 +240,12 @@ function dedupeAndFilter(rows) {
   }
 
   return Array.from(finalByStory.values())
-    .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+    .sort((a, b) => {
+      const aHasDoc = String(a.image_type || "").toLowerCase() === "documented" && !!String(a.image_url || "").trim();
+      const bHasDoc = String(b.image_type || "").toLowerCase() === "documented" && !!String(b.image_url || "").trim();
+      if (aHasDoc !== bHasDoc) return bHasDoc ? 1 : -1;
+      return new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime();
+    })
     .slice(0, 1200);
 }
 
