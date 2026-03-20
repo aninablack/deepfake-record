@@ -8,6 +8,13 @@ function toProxyUrl(url) {
   return `/api/image-proxy?url=${encodeURIComponent(raw)}`;
 }
 
+function illustrativeImageForTitle(title) {
+  const prompt = encodeURIComponent(
+    `editorial illustration about deepfake incident, ${String(title || "synthetic media report")}, no logos, no product branding, no text watermark`
+  );
+  return `https://image.pollinations.ai/prompt/${prompt}?width=800&height=600&nologo=true`;
+}
+
 function normalizeDomain(value) {
   return String(value || "").trim().toLowerCase().replace(/^www\./, "");
 }
@@ -199,7 +206,7 @@ function dedupeAndFilter(rows) {
     const sourceType = String(row.source_type || "").toLowerCase();
     const claimUrl = String(row.claim_url || "").trim();
     const homepageOnly = isHomepageLikeUrl(row.article_url);
-    if (homepageOnly && (!claimUrl || isHomepageLikeUrl(claimUrl))) continue;
+    const unresolvedHomepage = homepageOnly && (!claimUrl || isHomepageLikeUrl(claimUrl));
     const isAudioTagged =
       String(row.category || "").toLowerCase() === "audio" ||
       /voice clone|audio deepfake|synthetic voice/i.test(String(row.category_label || ""));
@@ -222,14 +229,23 @@ function dedupeAndFilter(rows) {
     // Hard cut: drop Google wrapper cards unless they carry a documented image.
     if (isGoogleWrapperRow && !isDocumented) continue;
 
+    const fallbackIllustrative = illustrativeImageForTitle(row.title);
+    const effectiveArticleUrl = unresolvedHomepage ? "" : String(row.article_url || "");
+    const effectiveImageUrl = isBadThumb
+      ? (unresolvedHomepage ? fallbackIllustrative : "")
+      : toProxyUrl(row.image_url);
+
     const next = {
       ...row,
       category: classifyCategory(row),
       record_type: deriveRecordType(row),
-      image_url: isBadThumb ? "" : toProxyUrl(row.image_url),
-      image_type: isDocumented ? "documented" : "illustrative",
+      article_url: effectiveArticleUrl,
+      image_url: effectiveImageUrl,
+      image_type: isDocumented && !unresolvedHomepage ? "documented" : "illustrative",
       rights_status: isBadThumb ? "unknown" : row.rights_status,
-      usage_note: isBadThumb ? "No article-specific evidence image; showing headline-only card." : row.usage_note,
+      usage_note: unresolvedHomepage
+        ? "Source article URL unresolved; showing illustrative image and headline context."
+        : (isBadThumb ? "No article-specific evidence image; showing headline-only card." : row.usage_note),
     };
 
     const incidentKey = String(row.incident_key || "").trim();
