@@ -22,8 +22,8 @@ function isLowQualityThumb(url) {
   if (!u) return true;
   return (
     /lh3\.googleusercontent\.com/.test(u) ||
-    /favicon|apple-touch-icon|site-icon|wordmark|brandmark/.test(u) ||
-    /logo|favicon|site-icon|wordmark|brandmark/.test(u)
+    /favicon|apple-touch-icon|site-icon|wordmark|brandmark|\/icons?\//.test(u) ||
+    /logo|favicon|site-icon|wordmark|brandmark|tweet\.jpg|\/theme\/images\//.test(u)
   );
 }
 
@@ -214,7 +214,7 @@ function dedupeAndFilter(rows) {
       (/lh3\.googleusercontent\.com/i.test(rawImage) || /lh3\.googleusercontent\.com%2f/i.test(rawImage));
     const isDocumentedSource =
       String(row.image_type || "").toLowerCase() === "documented" && !!String(row.image_url || "").trim();
-    const isBadThumb = isGenericGoogleThumb || (!isDocumentedSource && isLowQualityThumb(rawImage));
+    const isBadThumb = isGenericGoogleThumb || isLowQualityThumb(rawImage);
     const isDocumented = !isBadThumb && isDocumentedSource;
     const isGoogleWrapperRow =
       isGoogleDomain(row.source_domain) &&
@@ -285,6 +285,7 @@ function rebalanceSources(rows, limit) {
   let googleCount = 0;
   let nonGoogleCount = 0;
   let factcheckCount = 0;
+  let newsCount = 0;
 
   const sourceBucket = (row) => {
     const domain = normalizeDomain(row.source_domain || "");
@@ -334,10 +335,15 @@ function rebalanceSources(rows, limit) {
     if (isGoogleDomain(domain)) googleCount += 1;
     else nonGoogleCount += 1;
     if (sourceType === "factcheck") factcheckCount += 1;
+    if (sourceType === "news") newsCount += 1;
   };
 
   const nonGoogleItems = items.filter((r) => !isGoogleDomain(r.source_domain));
   const googleItems = items.filter((r) => isGoogleDomain(r.source_domain) && !isLowQualityGoogleRow(r));
+  const factcheckItems = nonGoogleItems.filter((r) => String(r.source_type || "").toLowerCase() === "factcheck");
+  const newsItems = nonGoogleItems.filter((r) => String(r.source_type || "").toLowerCase() === "news");
+  const minFactcheckShown = Math.min(factcheckItems.length, Math.max(3, Math.floor(limit * 0.2)));
+  const minNewsShown = Math.min(newsItems.length, Math.max(6, Math.floor(limit * 0.35)));
 
   // Pass -1: ensure source diversity for key listed feeds when records are available.
   const requiredBuckets = [
@@ -365,6 +371,24 @@ function rebalanceSources(rows, limit) {
     if (nonGoogleCount >= minNonGoogleTarget) break;
     if (selected.find((x) => x.id === row.id)) continue;
     if (canTake(row)) take(row);
+  }
+
+  // Pass 0b: enforce minimum visible mix by source type when available.
+  if (selected.length < limit && factcheckCount < minFactcheckShown) {
+    for (const row of factcheckItems) {
+      if (selected.length >= limit) break;
+      if (factcheckCount >= minFactcheckShown) break;
+      if (selected.find((x) => x.id === row.id)) continue;
+      if (canTake(row, { relaxFactcheck: true })) take(row);
+    }
+  }
+  if (selected.length < limit && newsCount < minNewsShown) {
+    for (const row of newsItems) {
+      if (selected.length >= limit) break;
+      if (newsCount >= minNewsShown) break;
+      if (selected.find((x) => x.id === row.id)) continue;
+      if (canTake(row)) take(row);
+    }
   }
 
   // Pass 1: prioritize non-Google and non-factcheck items first.
