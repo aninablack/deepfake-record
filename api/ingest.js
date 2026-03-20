@@ -653,6 +653,11 @@ async function normalize(client, article, index) {
   const modalities = deriveModalities(`${title} ${description}`);
   const tags = deriveTags(`${title} ${description}`);
 
+  // Hard guard: never persist incidents without a resolvable article/claim URL.
+  if (!String(articleUrl || '').trim() && !String(claimUrl || '').trim()) {
+    return null;
+  }
+
   let providerScores = [];
   if (index < config.detectionMaxItems) {
     providerScores = await scoreWithProviders(article);
