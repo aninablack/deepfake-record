@@ -556,7 +556,8 @@ async function normalize(client, article, index) {
   if (sourceType === 'news' && !isTitleDeepfakeSpecific(title)) {
     return null;
   }
-  if (isFactcheck && !hasStrongDeepfakeSignal(`${title} ${description} ${article.url || ''}`)) {
+  // Fact-check sources are already curated; avoid over-pruning due to softer wording.
+  if (isFactcheck && deepfakeRelevanceScore(title, description) < 1) {
     return null;
   }
   if (!isFactcheck && isContextOnlyArticle(`${title} ${description} ${article.url || ''}`)) {
