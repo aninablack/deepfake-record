@@ -162,6 +162,11 @@ function dedupeAndFilter(rows) {
     if (/(road|mountain|landscape|beach)/i.test(img) && /(deepfake|debunked|netanyahu|cafe|caf\u00e9)/i.test(title)) score -= 1;
     return score;
   };
+  const isGoogleWrapper = (row) => {
+    const domain = normalizeDomain(row.source_domain || "");
+    const article = String(row.article_url || "").toLowerCase();
+    return domain === "news.google.com" || /news\.google\.com\/rss\/articles\//.test(article);
+  };
   const pickPreferred = (prev, next) => {
     const prevHasDocImage =
       String(prev.image_type || "").toLowerCase() === "documented" && !!String(prev.image_url || "").trim();
@@ -172,6 +177,10 @@ function dedupeAndFilter(rows) {
     const prevImg = imageRelevanceScore(prev);
     const nextImg = imageRelevanceScore(next);
     if (nextImg !== prevImg) return nextImg > prevImg ? next : prev;
+
+    const prevGoogleWrapper = isGoogleWrapper(prev);
+    const nextGoogleWrapper = isGoogleWrapper(next);
+    if (prevGoogleWrapper !== nextGoogleWrapper) return nextGoogleWrapper ? prev : next;
 
     const prevRank = sourceRank[String(prev.source_priority || "").toLowerCase()] || 0;
     const nextRank = sourceRank[String(next.source_priority || "").toLowerCase()] || 0;

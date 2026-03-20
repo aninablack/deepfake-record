@@ -279,6 +279,60 @@ function pickBestArticleUrl(primaryLink, candidateLinks = []) {
   return canonicalPrimary;
 }
 
+function isGoogleNewsUrl(url) {
+  const low = String(url || "").toLowerCase();
+  return /news\.google\.com\/rss\/articles\//.test(low) || /news\.google\.com\//.test(low);
+}
+
+function isGoogleOwnedHost(hostname = "") {
+  const h = String(hostname || "").toLowerCase();
+  return /(^|\.)google\./.test(h) || /(^|\.)googleusercontent\.com$/.test(h) || /(^|\.)gstatic\.com$/.test(h);
+}
+
+function extractFirstNonGoogleUrlFromHtml(html) {
+  const matches = Array.from(String(html || "").matchAll(/https?:\/\/[^\s"'<>\\)]+/gi)).map((m) => m[0]);
+  for (const raw of matches) {
+    const u = canonicalizeUrl(raw);
+    if (!u) continue;
+    try {
+      const host = new URL(u).hostname.replace(/^www\./, "");
+      if (!isGoogleOwnedHost(host)) return u;
+    } catch {
+      // ignore malformed candidate
+    }
+  }
+  return "";
+}
+
+async function resolveGooglePublisherUrl(url, candidateLinks = []) {
+  const input = canonicalizeUrl(url);
+  if (!input || !isGoogleNewsUrl(input)) return input;
+
+  const headers = { "user-agent": "deepfake-record/1.0 (+contact: deepfake-record)" };
+
+  try {
+    const res = await fetch(input, { redirect: "follow", headers });
+    const finalUrl = canonicalizeUrl(res.url || "");
+    if (finalUrl) {
+      try {
+        const host = new URL(finalUrl).hostname.replace(/^www\./, "");
+        if (!isGoogleOwnedHost(host)) return finalUrl;
+      } catch {
+        // continue
+      }
+    }
+    const body = await res.text();
+    const extracted = extractFirstNonGoogleUrlFromHtml(body);
+    if (extracted) return extracted;
+  } catch {
+    // continue with fallbacks below
+  }
+
+  const fromCandidates = pickBestArticleUrl("", candidateLinks);
+  if (fromCandidates && !isGoogleNewsUrl(fromCandidates)) return fromCandidates;
+  return input;
+}
+
 async function fetchRssArticles() {
   const feeds = splitCsv(config.rssFeeds);
   const records = [];
@@ -290,8 +344,12 @@ async function fetchRssArticles() {
       const parsed = parseRssItems(xml).slice(0, config.rssMaxItemsPerFeed);
       for (const item of parsed) {
         const textLinks = extractUrlsFromText(`${item.title || ""} ${item.description || ""}`);
-        const canonicalLink = pickBestArticleUrl(item.link, [...(item.links || []), ...textLinks]);
-        const claimFromLinks = pickClaimUrl([...(item.links || []), ...textLinks]);
+        const allLinks = [...(item.links || []), ...textLinks];
+        let canonicalLink = pickBestArticleUrl(item.link, allLinks);
+        if (isGoogleNewsUrl(canonicalLink)) {
+          canonicalLink = await resolveGooglePublisherUrl(canonicalLink, allLinks);
+        }
+        const claimFromLinks = pickClaimUrl(allLinks);
         const claimUrl = claimFromLinks || (isDirectPlatformUrl(canonicalLink) ? canonicalLink : null);
         records.push({
           title: item.title,
