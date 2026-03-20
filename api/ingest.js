@@ -320,20 +320,27 @@ async function fetchRssArticles() {
 }
 
 async function fetchRedditArticles() {
+  const redditUser = String(process.env.REDDIT_USERNAME || '').trim();
+  const userAgent = redditUser
+    ? `web:deepfake-record:v1.0 (by /u/${redditUser})`
+    : 'web:deepfake-record:v1.0 (by /u/deepfake_record_bot)';
   const subs = splitCsv(config.redditSubreddits);
   const records = [];
+  const statuses = [];
   for (const sub of subs) {
     const searchUrl = `https://www.reddit.com/r/${encodeURIComponent(sub)}/search.json?restrict_sr=1&sort=new&limit=${config.redditMaxItemsPerSubreddit}&q=${encodeURIComponent(config.redditQuery)}`;
     const newUrl = `https://www.reddit.com/r/${encodeURIComponent(sub)}/new.json?limit=${config.redditMaxItemsPerSubreddit}`;
     try {
       let children = [];
-      const searchRes = await fetch(searchUrl, { headers: { 'user-agent': 'deepfake-record/1.0 (+contact: deepfake-record)' } });
+      const searchRes = await fetch(searchUrl, { headers: { 'user-agent': userAgent } });
+      statuses.push({ subreddit: sub, endpoint: 'search', status: searchRes.status, ok: searchRes.ok });
       if (searchRes.ok) {
         const searchJson = await searchRes.json();
         children = searchJson?.data?.children || [];
       }
       if (children.length === 0) {
-        const newRes = await fetch(newUrl, { headers: { 'user-agent': 'deepfake-record/1.0 (+contact: deepfake-record)' } });
+        const newRes = await fetch(newUrl, { headers: { 'user-agent': userAgent } });
+        statuses.push({ subreddit: sub, endpoint: 'new', status: newRes.status, ok: newRes.ok });
         if (!newRes.ok) continue;
         const newJson = await newRes.json();
         const raw = newJson?.data?.children || [];
@@ -344,6 +351,16 @@ async function fetchRedditArticles() {
           const hay = `${d.title || ''} ${d.selftext || ''} ${d.url || ''}`.toLowerCase();
           return needles.some((n) => hay.includes(n.toLowerCase()));
         });
+        if (children.length === 0) {
+          // Looser fallback when query parsing/search endpoint under-delivers.
+          children = raw.filter((it) => {
+            const d = it?.data || {};
+            const hay = `${d.title || ''} ${d.selftext || ''} ${d.url || ''}`.toLowerCase();
+            return /(deepfake|deep fake|voice clone|face swap|synthetic media|ai impersonation|fake video|fake audio|ai porn)/i.test(
+              hay
+            );
+          });
+        }
       }
 
       for (const item of children) {
@@ -363,11 +380,12 @@ async function fetchRedditArticles() {
           claim_url: canonicalizeUrl(articleUrl),
         });
       }
-    } catch {
+    } catch (err) {
+      statuses.push({ subreddit: sub, endpoint: 'error', status: 0, ok: false, error: String(err?.message || 'fetch failed') });
       // Skip failed subreddit and continue.
     }
   }
-  return records;
+  return { records, statuses };
 }
 
 async function fetchGdeltByQuery(query, maxrecords) {
@@ -654,6 +672,7 @@ module.exports = async (_req, res) => {
     let rawContext = [];
     let rssRaw = [];
     let redditRaw = [];
+    let redditStatuses = [];
 
     try {
       rawContext = await fetchGdeltContext();
@@ -668,9 +687,12 @@ module.exports = async (_req, res) => {
       warnings.push('RSS fetch failed; continuing with remaining sources.');
     }
     try {
-      redditRaw = await fetchRedditArticles();
+      const redditResult = await fetchRedditArticles();
+      redditRaw = Array.isArray(redditResult?.records) ? redditResult.records : [];
+      redditStatuses = Array.isArray(redditResult?.statuses) ? redditResult.statuses : [];
     } catch {
       redditRaw = [];
+      redditStatuses = [];
       warnings.push('Reddit fetch failed; continuing with remaining sources.');
     }
 
@@ -709,6 +731,7 @@ module.exports = async (_req, res) => {
       fetched_gdelt: raw.length,
       fetched_rss: rssRaw.length,
       fetched_reddit: redditRaw.length,
+      reddit_statuses: redditStatuses,
       context_fetched: rawContext.length,
       context_upserted: contextResult.inserted,
       archived_events_logged: eventsResult.inserted || 0,
