@@ -145,7 +145,13 @@ function dedupeAndFilter(rows) {
   const byIncidentKey = new Map();
   const byId = new Map();
   const blockedDomains = new Set(["bignewsnetwork.com", "haskellforall.com", "intouchweekly.com", "citizensvoice.com"]);
-  const sourceRank = { factchecker: 3, major_outlet: 2, other: 1 };
+  const sourceRank = {
+    government: 5,
+    cyber_security: 4,
+    factchecker: 3,
+    major_outlet: 2,
+    other: 1,
+  };
   const imageRelevanceScore = (row) => {
     const title = String(row.title || "").toLowerCase();
     const img = String(row.image_url || "").toLowerCase();
