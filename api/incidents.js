@@ -276,8 +276,8 @@ function rebalanceSources(rows, limit) {
   const items = Array.isArray(rows) ? rows : [];
   if (!items.length) return [];
 
-  const maxGoogleShare = Math.max(8, Math.floor(limit * 0.35));
-  const minNonGoogleTarget = Math.min(limit, Math.max(10, Math.floor(limit * 0.8)));
+  const maxGoogleShare = Math.max(3, Math.floor(limit * 0.1));
+  const minNonGoogleTarget = Math.min(limit, Math.max(10, Math.floor(limit * 0.9)));
   const maxPerDomain = Math.max(2, Math.floor(limit * 0.2));
   const maxFactcheckShare = Math.max(6, Math.floor(limit * 0.35));
 
@@ -307,9 +307,12 @@ function rebalanceSources(rows, limit) {
   const isLowQualityGoogleRow = (row) => {
     if (!isGoogleDomain(row.source_domain)) return false;
     const hasImage = !!String(row.image_url || "").trim();
-    const confidence = Number(row.confidence) || 0;
-    // Keep no-image Google rows as text-headline cards, but suppress lower-confidence noise.
-    return !hasImage && confidence < 0.78;
+    const article = String(row.article_url || "").toLowerCase();
+    const isGoogleWrapper = /news\.google\.com\/rss\/articles\//.test(article);
+    // Suppress Google wrapper rows without a real image so direct-source cards can dominate.
+    if (!hasImage && isGoogleWrapper) return true;
+    // Also suppress generic no-image Google rows.
+    return !hasImage;
   };
 
   const canTake = (row, opts = {}) => {
