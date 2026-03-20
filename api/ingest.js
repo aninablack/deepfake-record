@@ -100,36 +100,15 @@ const TRUSTED_DEEPFAKE_DOMAINS = [
 ];
 
 function passesStrictRelevance(article, title, description) {
-  const sourceType = article.source_type || 'news';
   const full = `${title} ${description} ${article.url || ''}`;
   const titleSignal = hasStrongDeepfakeSignal(title);
   const fullSignal = hasStrongDeepfakeSignal(full);
   const relevance = deepfakeRelevanceScore(title, description);
-  const domain = String(article.domain || article.source_domain || '').toLowerCase();
-  const isTrusted = TRUSTED_DEEPFAKE_DOMAINS.some((d) => domain.includes(d));
+  // Must have at least one deepfake signal somewhere.
+  if (!titleSignal && !fullSignal && relevance < 1) return false;
 
-  if (isTrusted && fullSignal) return true;
-
-  // For fact-check feeds, allow softer wording if relevance still indicates deepfake context.
-  if (sourceType === 'factcheck') {
-    if (!titleSignal && !fullSignal && relevance < 1) return false;
-  } else if (!titleSignal && !fullSignal) {
-    // News/social records still require explicit deepfake-style signal.
-    return false;
-  }
-
-  // Opinion/editorial pieces must still be explicit in title to avoid generic policy content.
-  if (/(opinion|editorial|analysis)/i.test(title) && !titleSignal) return false;
-
-  // Raise quality bar globally to reduce false positives.
-  if (sourceType === 'factcheck') {
-    if (relevance < 1) return false;
-  } else if (relevance < 2) {
-    return false;
-  }
-
-  // News sources should still carry a strong signal in title OR body.
-  if (sourceType === 'news' && !titleSignal && !fullSignal) return false;
+  // Opinion/editorial without explicit title signal is usually context noise.
+  if (/(opinion|editorial)/i.test(title) && !titleSignal) return false;
 
   return true;
 }
@@ -599,6 +578,21 @@ async function normalize(client, article, index, dropCounters = null) {
   const title = (article.title || '').trim();
   const sourceType = article.source_type || 'news';
   const isFactcheck = sourceType === 'factcheck';
+  const trustedDomains = [
+    'bellingcat.com',
+    'dfrlab.org',
+    'euvsdisinfo.eu',
+    'snopes.com',
+    'politifact.com',
+    'fullfact.org',
+    'bleepingcomputer.com',
+    'krebsonsecurity.com',
+    '404media.co',
+    'therecord.media',
+    'wired.com',
+    'arstechnica.com',
+    'theverge.com',
+  ];
   const description =
     article.description ||
     (article.seendate ? `Seen ${article.seendate}` : '') + (article.sourcecountry ? ` · ${article.sourcecountry}` : '');
@@ -621,39 +615,29 @@ async function normalize(client, article, index, dropCounters = null) {
     return null;
   }
   const fullText = `${title} ${description} ${article.url || ''}`;
+  const isTrustedSource = trustedDomains.some((d) => String(article.domain || '').toLowerCase().includes(d));
+  const trustedSignalPass = isTrustedSource && hasStrongDeepfakeSignal(fullText);
   const factcheckCandidate =
     isFactcheck && (deepfakeRelevanceScore(title, description) >= 1 || hasStrongDeepfakeSignal(fullText));
-  if (!isFactcheck && !isDeepfakeRelevant(fullText)) {
+  if (!trustedSignalPass && !isFactcheck && !isDeepfakeRelevant(fullText)) {
     bumpDrop(dropCounters, 'dropped_not_deepfake_relevant');
     return null;
   }
-  if (isFactcheck && !factcheckCandidate) {
+  if (!trustedSignalPass && isFactcheck && !factcheckCandidate) {
     bumpDrop(dropCounters, 'dropped_factcheck_candidate');
     return null;
   }
-  if (!passesStrictRelevance(article, title, description)) {
+  if (!trustedSignalPass && !passesStrictRelevance(article, title, description)) {
     bumpDrop(dropCounters, 'dropped_strict_relevance');
     return null;
   }
-  if (!isFactcheck && !isIncidentCandidate(article, title, description)) {
-    bumpDrop(dropCounters, 'dropped_not_incident_candidate');
-    return null;
-  }
-  // Keep noise low but allow trusted/newsroom wording that is deepfake-relevant
-  // even when title phrasing is softer.
-  const titleSpecific = isTitleDeepfakeSpecific(title);
-  const strongSignal = hasStrongDeepfakeSignal(fullText);
-  const relevance = deepfakeRelevanceScore(title, description);
-  if (sourceType === 'news' && !titleSpecific && !strongSignal && relevance < 2) {
-    bumpDrop(dropCounters, 'dropped_news_title_specificity');
-    return null;
-  }
+  const incidentCandidate = isIncidentCandidate(article, title, description);
   // Fact-check sources are already curated; avoid over-pruning due to softer wording.
-  if (isFactcheck && deepfakeRelevanceScore(title, description) < 1) {
+  if (!trustedSignalPass && isFactcheck && deepfakeRelevanceScore(title, description) < 1) {
     bumpDrop(dropCounters, 'dropped_factcheck_relevance_floor');
     return null;
   }
-  if (!isFactcheck && isContextOnlyArticle(`${title} ${description} ${article.url || ''}`)) {
+  if (!trustedSignalPass && !isFactcheck && isContextOnlyArticle(`${title} ${description} ${article.url || ''}`)) {
     bumpDrop(dropCounters, 'dropped_context_only');
     return null;
   }
@@ -702,6 +686,9 @@ async function normalize(client, article, index, dropCounters = null) {
   }
 
   const blended = blendConfidence(classified.score, providerScores);
+  const adjustedConfidence = (!isFactcheck && !incidentCandidate)
+    ? Math.max(0.25, Number(blended.confidence || 0) * 0.85)
+    : Number(blended.confidence || 0);
 
   return {
     source_id: articleUrl || `${sourceDomain}:${title}`,
@@ -709,7 +696,7 @@ async function normalize(client, article, index, dropCounters = null) {
     summary: description,
     category: classified.type,
     category_label: classified.label,
-    confidence: Number(blended.confidence.toFixed(2)),
+    confidence: Number(adjustedConfidence.toFixed(2)),
     source_domain: sourceDomain,
     platform: platformFromUrl(articleUrl || sourceDomain),
     source_type: sourceType,
