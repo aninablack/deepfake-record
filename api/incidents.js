@@ -30,6 +30,15 @@ function isLowQualityThumb(url) {
   );
 }
 
+function isLowValueGuideRow(row) {
+  const t = `${row.title || ""} ${row.summary || ""}`.toLowerCase();
+  const guidePattern =
+    /(deepfakemaker|deepfake maker|face swap|how to|practical guide|guide to|tutorial|choosing the perfect|turn any clip|viral ai video|free unlimited|reaction gif)/i;
+  const strongIncidentPattern =
+    /(victim|victimized|lawsuit|sued|arrest|charged|jailed|banned|ban|removed|takedown|scam|fraud|impersonation|child porn|non-consensual|court|acquitted)/i;
+  return guidePattern.test(t) && !strongIncidentPattern.test(t);
+}
+
 function hasDeepfakeSignal(text) {
   return /(deepfake|deep fake|voice clone|cloned voice|vocal clone|synthetic voice|voice deepfake|audio deepfake|fake audio|fake video|face swap|synthetic media|ai impersonation|ai song|ai[- ]generated song|soundalike|mimic(?:ked|ry)? voice|ai porn|non-consensual)/i.test(
     String(text || "")
@@ -156,6 +165,7 @@ function dedupeAndFilter(rows) {
   };
 
   for (const row of rows || []) {
+    if (isLowValueGuideRow(row)) continue;
     const hay = `${row.title || ""} ${row.summary || ""} ${row.article_url || ""}`;
     const domain = normalizeDomain(row.source_domain);
     if (blockedDomains.has(domain)) continue;
@@ -170,13 +180,14 @@ function dedupeAndFilter(rows) {
       isGoogleDomain(row.source_domain) &&
       (/lh3\.googleusercontent\.com/i.test(rawImage) || /lh3\.googleusercontent\.com%2f/i.test(rawImage));
     const isBadThumb = isLowQualityThumb(rawImage) || isGenericGoogleThumb;
+    const isDocumented = !isBadThumb && String(row.image_type || "").toLowerCase() === "documented";
 
     const next = {
       ...row,
       category: classifyCategory(row),
       record_type: deriveRecordType(row),
       image_url: isBadThumb ? "" : toProxyUrl(row.image_url),
-      image_type: isBadThumb ? "illustrative" : row.image_type,
+      image_type: isDocumented ? "documented" : "illustrative",
       rights_status: isBadThumb ? "unknown" : row.rights_status,
       usage_note: isBadThumb ? "No article-specific evidence image; showing headline-only card." : row.usage_note,
     };

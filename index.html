@@ -1066,7 +1066,10 @@ function mapIncident(incident, index) {
     reportedOn: incident.reported_on || '',
     overlayTag: label,
     overlayTagClass: categoryTagClassMap[type] || 'df-visual-category-entertainment',
-    docTag: incident.image_type === 'documented' ? 'Documented' : 'Instance',
+    docTag:
+      incident.image_type === 'documented'
+        ? 'Documented'
+        : (incident.record_type === 'incident_direct' ? 'Instance' : 'Instance'),
     rightsLabel: rightsMap[incident.rights_status] || 'Unknown',
     usageNote: incident.usage_note || '',
     status: incident.status || 'reported_as_synthetic',
