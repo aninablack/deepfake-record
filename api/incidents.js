@@ -356,13 +356,14 @@ function rebalanceSources(rows, limit) {
   for (const bucket of requiredBuckets) {
     if (selected.length >= limit) break;
     const candidate = items.find((r) => sourceBucket(r) === bucket && canTake(r, { relaxGoogle: true, relaxFactcheck: true }));
-    if (candidate) take(candidate);
+    if (candidate && !selected.find((x) => x.id === candidate.id)) take(candidate);
   }
 
   // Pass 0: enforce non-Google minimum first when available.
   for (const row of nonGoogleItems) {
     if (selected.length >= limit) break;
     if (nonGoogleCount >= minNonGoogleTarget) break;
+    if (selected.find((x) => x.id === row.id)) continue;
     if (canTake(row)) take(row);
   }
 
