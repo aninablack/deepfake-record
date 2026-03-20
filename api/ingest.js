@@ -173,26 +173,46 @@ function matchAttrTag(block, tag, attrName) {
 
 function parseRssItems(xml) {
   const items = [];
+  const matchFirst = (block, patterns) => {
+    for (const re of patterns) {
+      const m = block.match(re);
+      if (m && m[1]) return String(m[1]).trim();
+    }
+    return "";
+  };
   const itemBlocks = xml.match(/<item[\s\S]*?<\/item>/gi) || [];
   for (const block of itemBlocks) {
     const links = Array.from(block.matchAll(/https?:\/\/[^\s"'<>]+/gi)).map((m) => m[0]);
+    const mediaUrl = matchFirst(block, [
+      /<media:content[^>]+url=["']([^"']+)["'][^>]*>/i,
+      /<media:thumbnail[^>]+url=["']([^"']+)["'][^>]*>/i,
+      /<enclosure[^>]+url=["']([^"']+)["'][^>]*>/i,
+    ]);
     items.push({
       title: matchTag(block, 'title'),
       description: matchTag(block, 'description'),
       link: matchTag(block, 'link'),
       pubDate: matchTag(block, 'pubDate') || matchTag(block, 'dc:date'),
       links,
+      mediaUrl,
     });
   }
   const entryBlocks = xml.match(/<entry[\s\S]*?<\/entry>/gi) || [];
   for (const block of entryBlocks) {
     const links = Array.from(block.matchAll(/https?:\/\/[^\s"'<>]+/gi)).map((m) => m[0]);
+    const mediaUrl = matchFirst(block, [
+      /<media:content[^>]+url=["']([^"']+)["'][^>]*>/i,
+      /<media:thumbnail[^>]+url=["']([^"']+)["'][^>]*>/i,
+      /<link[^>]+rel=["']enclosure["'][^>]+href=["']([^"']+)["'][^>]*>/i,
+      /<link[^>]+href=["']([^"']+)["'][^>]+rel=["']enclosure["'][^>]*>/i,
+    ]);
     items.push({
       title: matchTag(block, 'title'),
       description: matchTag(block, 'summary') || matchTag(block, 'content'),
       link: matchAttrTag(block, 'link', 'href') || matchTag(block, 'id'),
       pubDate: matchTag(block, 'updated') || matchTag(block, 'published'),
       links,
+      mediaUrl,
     });
   }
   return items;
@@ -286,7 +306,7 @@ async function fetchRssArticles() {
           })(),
           sourcecountry: null,
           language: 'en',
-          socialimage: null,
+          socialimage: canonicalizeUrl(item.mediaUrl || "") || null,
           description: item.description || '',
           source_type: claimUrl ? 'social_report' : 'factcheck',
           claim_url: claimUrl,
