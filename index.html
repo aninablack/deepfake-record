@@ -837,7 +837,7 @@ function isLikelyLogoImage(url) {
   const u = String(url || '').toLowerCase();
   if (!u) return true;
   return (
-    /logo|favicon|apple-touch-icon|site-icon|brandmark|wordmark|default[-_]?image|placeholder|fallback|og[_-]?image|social[_-]?image|fbshare|site-share|share-image|brand[-_]?image|no-image|coming-soon/.test(u) ||
+    /logo|favicon|apple-touch-icon|site-icon|icon|fb-icon|brandmark|wordmark|default[-_]?image|placeholder|fallback|og[_-]?image|social[_-]?image|fbshare|site-share|share-image|brand[-_]?image|no-image|coming-soon/.test(u) ||
     /\/themes\/.*og-image|\/theme\/images\/fbshare/.test(u) ||
     /gstatic\.com\/images\/branding/.test(u) ||
     /news\.google\.com.*(logo|gnews|google-news)/.test(u) ||
