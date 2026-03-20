@@ -151,6 +151,12 @@ function dedupeAndFilter(rows) {
     return score;
   };
   const pickPreferred = (prev, next) => {
+    const prevHasDocImage =
+      String(prev.image_type || "").toLowerCase() === "documented" && !!String(prev.image_url || "").trim();
+    const nextHasDocImage =
+      String(next.image_type || "").toLowerCase() === "documented" && !!String(next.image_url || "").trim();
+    if (prevHasDocImage !== nextHasDocImage) return nextHasDocImage ? next : prev;
+
     const prevImg = imageRelevanceScore(prev);
     const nextImg = imageRelevanceScore(next);
     if (nextImg !== prevImg) return nextImg > prevImg ? next : prev;
