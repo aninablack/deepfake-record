@@ -1107,7 +1107,7 @@ function mapIncident(incident, index) {
     ratio: ratioFromType(type),
     isNew: index < 6,
     color: typeToColor[type] || '#eaf4ee',
-    imageUrl: incident.image_type === 'documented' ? (incident.image_url || '') : '',
+    imageUrl: incident.image_url || '',
     articleUrl: incident.article_url || '',
     confidence: incident.confidence || 0.5,
     source: incident.source_domain || 'GDELT feed',

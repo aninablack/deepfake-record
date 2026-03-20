@@ -198,13 +198,21 @@ function dedupeIncidents(items) {
 
   const priority = (item) => {
     const t = String(item?.source_type || '').toLowerCase();
-    if (t === 'social_report') return 3;
-    if (t === 'factcheck') return 2;
-    if (t === 'news') return 1;
+    if (t === 'news') return 4;
+    if (t === 'factcheck') return 3;
+    if (t === 'social_report') return 2;
     return 0;
   };
 
   const pick = (a, b) => {
+    const aDoc = String(a?.image_type || "").toLowerCase() === "documented" && !!String(a?.image_url || "").trim();
+    const bDoc = String(b?.image_type || "").toLowerCase() === "documented" && !!String(b?.image_url || "").trim();
+    if (aDoc !== bDoc) return bDoc ? b : a;
+
+    const aGoogle = /(^|\.)news\.google\.com$/i.test(String(a?.source_domain || ""));
+    const bGoogle = /(^|\.)news\.google\.com$/i.test(String(b?.source_domain || ""));
+    if (aGoogle !== bGoogle) return bGoogle ? a : b;
+
     const pa = priority(a);
     const pb = priority(b);
     if (pa !== pb) return pb > pa ? b : a;
@@ -253,15 +261,18 @@ function parseRssItems(xml) {
   };
   const itemBlocks = xml.match(/<item[\s\S]*?<\/item>/gi) || [];
   for (const block of itemBlocks) {
+    const description = matchTag(block, 'description');
     const links = Array.from(block.matchAll(/https?:\/\/[^\s"'<>]+/gi)).map((m) => m[0]);
-    const mediaUrl = matchFirst(block, [
-      /<media:content[^>]+url=["']([^"']+)["'][^>]*>/i,
-      /<media:thumbnail[^>]+url=["']([^"']+)["'][^>]*>/i,
-      /<enclosure[^>]+url=["']([^"']+)["'][^>]*>/i,
-    ]);
+    const mediaUrl =
+      matchFirst(block, [
+        /<media:content[^>]+url=["']([^"']+)["'][^>]*>/i,
+        /<media:thumbnail[^>]+url=["']([^"']+)["'][^>]*>/i,
+        /<enclosure[^>]+url=["']([^"']+)["'][^>]*>/i,
+      ]) ||
+      matchFirst(description, [/<img[^>]+src=["']([^"']+)["'][^>]*>/i]);
     items.push({
       title: matchTag(block, 'title'),
-      description: matchTag(block, 'description'),
+      description,
       link: matchTag(block, 'link'),
       pubDate: matchTag(block, 'pubDate') || matchTag(block, 'dc:date'),
       links,
@@ -270,13 +281,16 @@ function parseRssItems(xml) {
   }
   const entryBlocks = xml.match(/<entry[\s\S]*?<\/entry>/gi) || [];
   for (const block of entryBlocks) {
+    const description = matchTag(block, 'summary') || matchTag(block, 'content');
     const links = Array.from(block.matchAll(/https?:\/\/[^\s"'<>]+/gi)).map((m) => m[0]);
-    const mediaUrl = matchFirst(block, [
-      /<media:content[^>]+url=["']([^"']+)["'][^>]*>/i,
-      /<media:thumbnail[^>]+url=["']([^"']+)["'][^>]*>/i,
-      /<link[^>]+rel=["']enclosure["'][^>]+href=["']([^"']+)["'][^>]*>/i,
-      /<link[^>]+href=["']([^"']+)["'][^>]+rel=["']enclosure["'][^>]*>/i,
-    ]);
+    const mediaUrl =
+      matchFirst(block, [
+        /<media:content[^>]+url=["']([^"']+)["'][^>]*>/i,
+        /<media:thumbnail[^>]+url=["']([^"']+)["'][^>]*>/i,
+        /<link[^>]+rel=["']enclosure["'][^>]+href=["']([^"']+)["'][^>]*>/i,
+        /<link[^>]+href=["']([^"']+)["'][^>]+rel=["']enclosure["'][^>]*>/i,
+      ]) ||
+      matchFirst(description, [/<img[^>]+src=["']([^"']+)["'][^>]*>/i]);
     const atomAlternateLink = matchFirst(block, [
       /<link[^>]+rel=["']alternate["'][^>]+href=["']([^"']+)["'][^>]*>/i,
       /<link[^>]+href=["']([^"']+)["'][^>]+rel=["']alternate["'][^>]*>/i,
@@ -286,7 +300,7 @@ function parseRssItems(xml) {
     ]);
     items.push({
       title: matchTag(block, 'title'),
-      description: matchTag(block, 'summary') || matchTag(block, 'content'),
+      description,
       link: atomAlternateLink || atomCanonicalLink || matchTag(block, 'id'),
       pubDate: matchTag(block, 'updated') || matchTag(block, 'published'),
       links,
@@ -303,6 +317,13 @@ function pickClaimUrl(candidateLinks = []) {
     if (socialNeedles.some((n) => lower.includes(n))) return canonicalizeUrl(link);
   }
   return null;
+}
+
+function classifyRssSourceType(feedUrl, articleUrl, claimUrl = null) {
+  if (claimUrl) return 'social_report';
+  const text = `${feedUrl || ''} ${articleUrl || ''}`.toLowerCase();
+  if (/(snopes|politifact|factcheck|fullfact|leadstories|euvsdisinfo)/.test(text)) return 'factcheck';
+  return 'news';
 }
 
 function extractUrlsFromText(text) {
@@ -439,6 +460,7 @@ async function fetchRssArticles() {
         }
         const claimFromLinks = pickClaimUrl(allLinks);
         const claimUrl = claimFromLinks || (isDirectPlatformUrl(canonicalLink) ? canonicalLink : null);
+        const sourceType = classifyRssSourceType(feedUrl, canonicalLink, claimUrl);
         records.push({
           title: item.title,
           url: canonicalLink,
@@ -454,7 +476,7 @@ async function fetchRssArticles() {
           language: 'en',
           socialimage: canonicalizeUrl(item.mediaUrl || "") || null,
           description: item.description || '',
-          source_type: claimUrl ? 'social_report' : 'factcheck',
+          source_type: sourceType,
           claim_url: claimUrl,
         });
       }
