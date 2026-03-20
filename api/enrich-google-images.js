@@ -20,7 +20,15 @@ module.exports = async (req, res) => {
       if (!isGoogle) return false;
       const imageType = String(r.image_type || "").toLowerCase();
       const imageUrl = String(r.image_url || "").trim();
-      return !imageUrl || imageType !== "documented";
+      const lowUrl = imageUrl.toLowerCase();
+      const unusableGoogleThumb =
+        /lh3\.googleusercontent\.com/.test(lowUrl) ||
+        /default[-_]?image|placeholder|fallback|og[_-]?image|social[_-]?image|fbshare|site-share|share-image|brand[-_]?image|no-image|coming-soon/.test(
+          lowUrl
+        ) ||
+        /favicon|apple-touch-icon|site-icon|wordmark|brandmark|logo/.test(lowUrl);
+      if (!imageUrl || imageType !== "documented") return true;
+      return unusableGoogleThumb;
     }).slice(0, limit);
 
     let checked = 0;
