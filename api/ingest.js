@@ -211,10 +211,17 @@ function parseRssItems(xml) {
       /<link[^>]+rel=["']enclosure["'][^>]+href=["']([^"']+)["'][^>]*>/i,
       /<link[^>]+href=["']([^"']+)["'][^>]+rel=["']enclosure["'][^>]*>/i,
     ]);
+    const atomAlternateLink = matchFirst(block, [
+      /<link[^>]+rel=["']alternate["'][^>]+href=["']([^"']+)["'][^>]*>/i,
+      /<link[^>]+href=["']([^"']+)["'][^>]+rel=["']alternate["'][^>]*>/i,
+    ]);
+    const atomCanonicalLink = matchFirst(block, [
+      /<link[^>]+href=["']([^"']+)["'][^>]*>/i,
+    ]);
     items.push({
       title: matchTag(block, 'title'),
       description: matchTag(block, 'summary') || matchTag(block, 'content'),
-      link: matchAttrTag(block, 'link', 'href') || matchTag(block, 'id'),
+      link: atomAlternateLink || atomCanonicalLink || matchTag(block, 'id'),
       pubDate: matchTag(block, 'updated') || matchTag(block, 'published'),
       links,
       mediaUrl,
@@ -264,6 +271,7 @@ function pickBestArticleUrl(primaryLink, candidateLinks = []) {
     if (!isHomepageLike(u)) s += 35;
     if (/\/\d{4}\/\d{2}\//.test(u)) s += 15;
     if (/(\/news\/|\/article|\/story|\/tech\/|\/politics\/|\/world\/|\/business\/)/i.test(u)) s += 15;
+    if (/\.(rss|xml)(\?|$)/i.test(u) || /\/feed(\/|$)|\/rss(\/|$)|\/atom(\/|$)/i.test(u)) s -= 120;
     if (/\.(jpg|png|gif|webp|svg)$/i.test(u)) s -= 100;
     return s;
   };
