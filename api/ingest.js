@@ -588,8 +588,8 @@ async function normalize(client, article, index) {
   if (homepageLike && claimUrl && !isHomepageLikeUrl(claimUrl)) {
     articleUrl = claimUrl;
   }
-  if (isHomepageLikeUrl(articleUrl)) {
-    // Skip low-quality homepage links that are not incident-level records.
+  if (isHomepageLikeUrl(articleUrl) && !isFactcheck) {
+    // Skip low-quality homepage links for generic news, but allow curated fact-check feeds.
     return null;
   }
   const image = await resolveImage(article, { client });
