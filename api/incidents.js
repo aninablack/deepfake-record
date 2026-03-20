@@ -37,7 +37,7 @@ function isLowValueGuideRow(row) {
 }
 
 function hasDeepfakeSignal(text) {
-  return /(deepfake|deep fake|voice clone|cloned voice|vocal clone|synthetic voice|voice deepfake|audio deepfake|fake audio|fake video|face swap|synthetic media|ai impersonation|ai song|ai[- ]generated song|soundalike|mimic(?:ked|ry)? voice|ai porn|non-consensual)/i.test(
+  return /(deepfake|deep fake|voice clone|cloned voice|vocal clone|synthetic voice|voice deepfake|audio deepfake|fake audio|fake video|face swap|synthetic media|ai impersonation|ai song|ai[- ]generated song|soundalike|mimic(?:ked|ry)? voice|ai porn|non-consensual|digital forgery|manipulated media)/i.test(
     String(text || "")
   );
 }
@@ -204,7 +204,8 @@ function dedupeAndFilter(rows) {
     const isAudioTagged =
       String(row.category || "").toLowerCase() === "audio" ||
       /voice clone|audio deepfake|synthetic voice/i.test(String(row.category_label || ""));
-    if (!hasDeepfakeSignal(hay) && !isAudioTagged) continue;
+    // Curated RSS/fact-check rows can be relevant even when titles avoid deepfake wording.
+    if (!hasDeepfakeSignal(hay) && !isAudioTagged && sourceType !== "factcheck") continue;
     const urlKey = canonicalUrl(row.article_url);
     const titleKey = normalizeTitle(row.title);
     const rawImage = String(row.image_url || "").toLowerCase();
@@ -260,22 +261,14 @@ function dedupeAndFilter(rows) {
     finalByTitle.set(key, prev ? pickPreferred(prev, item) : item);
   }
 
-  const finalByStory = new Map();
-  for (const item of finalByTitle.values()) {
-    const storyKey = storyFingerprint(item) || topicKey(item) || normalizeTitle(item.title);
-    if (!storyKey) continue;
-    const prev = finalByStory.get(storyKey);
-    finalByStory.set(storyKey, prev ? pickPreferred(prev, item) : item);
-  }
-
-  return Array.from(finalByStory.values())
+  return Array.from(finalByTitle.values())
     .sort((a, b) => {
       const aHasDoc = String(a.image_type || "").toLowerCase() === "documented" && !!String(a.image_url || "").trim();
       const bHasDoc = String(b.image_type || "").toLowerCase() === "documented" && !!String(b.image_url || "").trim();
       if (aHasDoc !== bHasDoc) return bHasDoc ? 1 : -1;
       return new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime();
     })
-    .slice(0, 1200);
+    .slice(0, 2400);
 }
 
 function rebalanceSources(rows, limit) {
