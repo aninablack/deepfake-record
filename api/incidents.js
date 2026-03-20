@@ -197,6 +197,9 @@ function dedupeAndFilter(rows) {
     const domain = normalizeDomain(row.source_domain);
     if (blockedDomains.has(domain)) continue;
     const sourceType = String(row.source_type || "").toLowerCase();
+    const claimUrl = String(row.claim_url || "").trim();
+    const homepageOnly = isHomepageLikeUrl(row.article_url);
+    if (homepageOnly && (!claimUrl || isHomepageLikeUrl(claimUrl))) continue;
     const isAudioTagged =
       String(row.category || "").toLowerCase() === "audio" ||
       /voice clone|audio deepfake|synthetic voice/i.test(String(row.category_label || ""));

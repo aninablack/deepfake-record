@@ -169,6 +169,18 @@ function isHomepageLikeUrl(url) {
   }
 }
 
+function pickNonHomepageCandidate(candidateLinks = []) {
+  for (const raw of candidateLinks || []) {
+    const u = canonicalizeUrl(raw);
+    if (!u) continue;
+    if (!/^https?:\/\//i.test(u)) continue;
+    if (isHomepageLikeUrl(u)) continue;
+    if (/\.(jpg|png|gif|webp|svg)$/i.test(u)) continue;
+    return u;
+  }
+  return "";
+}
+
 function dedupeIncidents(items) {
   const byUrl = new Map();
   const byTitle = new Map();
@@ -412,9 +424,18 @@ async function fetchRssArticles() {
       for (const item of parsed) {
         const textLinks = extractUrlsFromText(`${item.title || ""} ${item.description || ""}`);
         const allLinks = [...(item.links || []), ...textLinks];
-        let canonicalLink = pickBestArticleUrl(item.link, allLinks);
-        if (isGoogleNewsUrl(canonicalLink)) {
-          canonicalLink = await resolveGooglePublisherUrl(canonicalLink, allLinks);
+        let canonicalLink = "";
+        if (isGoogleNewsUrl(item.link)) {
+          canonicalLink = await resolveGooglePublisherUrl(item.link, allLinks);
+        } else {
+          canonicalLink = pickBestArticleUrl(item.link, allLinks);
+          if (isGoogleNewsUrl(canonicalLink)) {
+            canonicalLink = await resolveGooglePublisherUrl(canonicalLink, allLinks);
+          }
+        }
+        if (isHomepageLikeUrl(canonicalLink)) {
+          const nonHomepage = pickNonHomepageCandidate(allLinks);
+          if (nonHomepage) canonicalLink = nonHomepage;
         }
         const claimFromLinks = pickClaimUrl(allLinks);
         const claimUrl = claimFromLinks || (isDirectPlatformUrl(canonicalLink) ? canonicalLink : null);
