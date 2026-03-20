@@ -222,6 +222,32 @@ function pickBestArticleUrl(primaryLink, candidateLinks = []) {
   const canonicalPrimary = canonicalizeUrl(primaryLink);
   const links = Array.isArray(candidateLinks) ? candidateLinks : [];
   const isGoogleLike = (u) => /(news\.google\.com|googleusercontent\.com|gstatic\.com)/i.test(String(u || ""));
+  const isHomepageLike = (u) => {
+    try {
+      const x = new URL(String(u || ""));
+      const p = String(x.pathname || "/").replace(/\/+$/, "") || "/";
+      const low = p.toLowerCase();
+      return p === "/" || low === "/home" || low === "/index" || low === "/index.html" || low === "/news";
+    } catch {
+      return true;
+    }
+  };
+  const scoreUrl = (u) => {
+    if (!u) return -999;
+    let s = 0;
+    if (!isGoogleLike(u)) s += 40;
+    if (!isHomepageLike(u)) s += 35;
+    if (/\/\d{4}\/\d{2}\//.test(u)) s += 15;
+    if (/(\/news\/|\/article|\/story|\/tech\/|\/politics\/|\/world\/|\/business\/)/i.test(u)) s += 15;
+    if (/\.(jpg|png|gif|webp|svg)$/i.test(u)) s -= 100;
+    return s;
+  };
+
+  const all = Array.from(new Set([canonicalPrimary, ...links.map(canonicalizeUrl)].filter(Boolean)));
+  const sorted = all.sort((a, b) => scoreUrl(b) - scoreUrl(a));
+  const best = sorted[0] || "";
+  if (best) return best;
+
   for (const raw of links) {
     const candidate = canonicalizeUrl(raw);
     if (!candidate) continue;
@@ -243,8 +269,8 @@ async function fetchRssArticles() {
       const xml = await res.text();
       const parsed = parseRssItems(xml).slice(0, config.rssMaxItemsPerFeed);
       for (const item of parsed) {
-        const canonicalLink = pickBestArticleUrl(item.link, item.links || []);
         const textLinks = extractUrlsFromText(`${item.title || ""} ${item.description || ""}`);
+        const canonicalLink = pickBestArticleUrl(item.link, [...(item.links || []), ...textLinks]);
         const claimFromLinks = pickClaimUrl([...(item.links || []), ...textLinks]);
         const claimUrl = claimFromLinks || (isDirectPlatformUrl(canonicalLink) ? canonicalLink : null);
         records.push({
