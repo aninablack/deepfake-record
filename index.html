@@ -396,15 +396,13 @@
 
   @media (max-width: 700px) {
     .df-gallery { columns: 1; padding: 14px 12px; }
-    .df-hero { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 20px 14px 14px; }
-    .df-counter-block { padding-top: 0; min-width: 124px; }
-    .df-hero-headline { font-size: clamp(36px, 10vw, 44px); line-height: 1.08; }
-    .df-hero-headline .line1,
-    .df-hero-headline .line2 { white-space: nowrap; }
+    .df-hero { grid-template-columns: minmax(0, 1fr) 106px; gap: 10px; align-items: start; padding: 14px 14px 12px; }
+    .df-counter-block { padding-top: 0; min-width: 106px; margin-top: 16px; }
+    .df-hero-headline { font-size: clamp(28px, 8.7vw, 36px); line-height: 1.06; margin-top: 0; }
     .df-counter-num { font-size: 66px; }
     .df-logo { font-size: 12px; letter-spacing: 0.2em; }
     .df-live-pill { font-size: 11px; letter-spacing: 0.1em; }
-    .df-hero-kicker { font-size: 10px; letter-spacing: 0.14em; margin-bottom: 8px; }
+    .df-hero-kicker { display: none; }
     .df-counter-label { font-size: 11px; letter-spacing: 0.08em; margin-top: 2px; }
     .df-masthead { padding: 14px 16px; }
     .df-filters { padding: 10px 12px; gap: 0; overflow-x: auto; white-space: nowrap; flex-wrap: nowrap; }
