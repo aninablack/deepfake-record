@@ -87,6 +87,10 @@
     font-style: italic;
     font-weight: 400;
   }
+  .df-hero-headline .line1,
+  .df-hero-headline .line2 {
+    display: block;
+  }
 
   .df-counter-block {
     display: flex;
@@ -376,43 +380,45 @@
     }
     .df-counter-num { font-size: 56px; text-align: right; line-height: 0.9; }
     .df-counter-label { margin-top: 6px; text-align: right; letter-spacing: 0.08em; }
-    .df-filters {
-      padding: 10px 16px;
-      flex-wrap: wrap;
-      row-gap: 8px;
-      align-items: center;
-    }
+    .df-filters { padding: 10px 16px; align-items: center; overflow-x: auto; white-space: nowrap; flex-wrap: nowrap; }
     .df-mode-switch {
-      width: 100%;
-      margin-right: 0;
-      padding-right: 0;
-      border-right: none;
-      border-bottom: 1px solid #e6e6e6;
-      padding-bottom: 6px;
-      margin-bottom: 4px;
+      width: auto;
+      margin-right: 12px;
+      padding-right: 12px;
+      border-right: 1px solid #ddd;
+      border-bottom: none;
+      padding-bottom: 0;
+      margin-bottom: 0;
     }
+    .df-resources { display: flex; grid-template-columns: none; overflow-x: auto; gap: 10px; padding: 10px 16px 12px; }
+    .df-resource-panel { min-width: 320px; flex: 0 0 auto; }
   }
 
   @media (max-width: 700px) {
     .df-gallery { columns: 1; padding: 14px 12px; }
-    .df-hero { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; }
-    .df-counter-block { padding-top: 0; min-width: 100px; }
-    .df-hero-headline { font-size: clamp(56px, 15vw, 72px); line-height: 1.02; }
-    .df-counter-num { font-size: 52px; }
+    .df-hero { grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; padding: 20px 14px 14px; }
+    .df-counter-block { padding-top: 0; min-width: 124px; }
+    .df-hero-headline { font-size: clamp(36px, 10vw, 44px); line-height: 1.08; }
+    .df-hero-headline .line1,
+    .df-hero-headline .line2 { white-space: nowrap; }
+    .df-counter-num { font-size: 66px; }
     .df-logo { font-size: 12px; letter-spacing: 0.2em; }
     .df-live-pill { font-size: 11px; letter-spacing: 0.1em; }
-    .df-hero-kicker { font-size: 12px; letter-spacing: 0.14em; }
-    .df-counter-label { font-size: 12px; letter-spacing: 0.08em; }
+    .df-hero-kicker { font-size: 10px; letter-spacing: 0.14em; margin-bottom: 8px; }
+    .df-counter-label { font-size: 11px; letter-spacing: 0.08em; margin-top: 2px; }
     .df-masthead { padding: 14px 16px; }
-    .df-filters { padding: 10px 16px; }
-    .df-resources { grid-template-columns: 1fr; padding: 10px 16px 12px; }
+    .df-filters { padding: 10px 12px; gap: 0; overflow-x: auto; white-space: nowrap; flex-wrap: nowrap; }
+    .df-mode-switch { margin-right: 8px; padding-right: 8px; border-right: 1px solid #ddd; flex: 0 0 auto; }
+    .df-resources { display: flex; overflow-x: auto; white-space: nowrap; gap: 8px; padding: 10px 12px 12px; }
+    .df-resource-panel { min-width: 280px; flex: 0 0 auto; }
     .df-legend { padding: 10px 16px 12px; }
     .df-filter-btn {
-      font-size: 15px;
+      font-size: 14px;
       letter-spacing: 0.05em;
-      margin-right: 8px;
-      padding: 8px 8px 8px 0;
+      margin-right: 0;
+      padding: 8px 10px 8px 0;
       line-height: 1.15;
+      flex: 0 0 auto;
     }
     .df-resource-head { font-size: 14px; letter-spacing: 0.1em; }
     .df-resource-count { font-size: 13px; }
@@ -696,7 +702,7 @@
   <div class="df-hero">
     <div>
       <div class="df-hero-kicker">A living archive of synthetic media</div>
-      <h1 class="df-hero-headline">Everything you see<br><em>is a deepfake.</em></h1>
+      <h1 class="df-hero-headline"><span class="line1">Everything you see</span><em class="line2">is a deepfake.</em></h1>
     </div>
 
     <div class="df-counter-block">
@@ -1301,7 +1307,10 @@ function updateHeroCounters() {
     ? (verifiedTotal || fallbackVerifiedTotal)
     : (liveTotal || fallbackLiveTotal);
   const value = totalValue;
-  const label = `${usingVerified ? 'Verified incidents logged' : 'Incidents logged'} · ${visibleCards.length.toLocaleString()} shown`;
+  const mobile = window.matchMedia && window.matchMedia('(max-width: 700px)').matches;
+  const label = mobile
+    ? (usingVerified ? 'Verified incidents logged' : 'Incidents logged')
+    : `${usingVerified ? 'Verified incidents logged' : 'Incidents logged'} · ${visibleCards.length.toLocaleString()} shown`;
   const counterEl = document.getElementById('counter');
   const labelEl = document.getElementById('counterLabel');
   if (counterEl) counterEl.textContent = (value || 0).toLocaleString();
