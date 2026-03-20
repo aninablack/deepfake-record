@@ -372,6 +372,11 @@ module.exports = async (req, res) => {
         rights_status: "unknown",
         usage_note: "Google aggregator thumbnail omitted; no article-specific evidence image.",
       };
+    }).filter((row) => {
+      if (!isGoogleDomain(row.source_domain)) return true;
+      const hasImage = !!String(row.image_url || "").trim();
+      const documented = String(row.image_type || "").toLowerCase() === "documented";
+      return hasImage && documented;
     });
     res.status(200).json({ ok: true, incidents: clean });
   } catch (error) {
