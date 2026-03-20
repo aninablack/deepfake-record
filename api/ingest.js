@@ -543,7 +543,12 @@ async function normalize(client, article, index) {
     return null;
   }
   const fullText = `${title} ${description} ${article.url || ''}`;
-  if (!isDeepfakeRelevant(fullText)) {
+  const factcheckCandidate =
+    isFactcheck && (deepfakeRelevanceScore(title, description) >= 1 || hasStrongDeepfakeSignal(fullText));
+  if (!isFactcheck && !isDeepfakeRelevant(fullText)) {
+    return null;
+  }
+  if (isFactcheck && !factcheckCandidate) {
     return null;
   }
   if (!passesStrictRelevance(article, title, description)) {
