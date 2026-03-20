@@ -351,36 +351,69 @@ async function fetchRedditArticles() {
 }
 
 async function fetchGdeltByQuery(query, maxrecords) {
-  const params = new URLSearchParams({
-    query,
-    mode: 'artlist',
-    maxrecords: String(maxrecords),
-    format: 'json',
-    sort: 'datedesc',
-  });
+  const totalAttempts = 4;
+  const maxByAttempt = [
+    Math.max(20, Number(maxrecords) || 80),
+    Math.max(20, Math.floor((Number(maxrecords) || 80) * 0.75)),
+    Math.max(15, Math.floor((Number(maxrecords) || 80) * 0.5)),
+    Math.max(10, Math.floor((Number(maxrecords) || 80) * 0.35)),
+  ];
+  let lastError = null;
 
-  const url = `https://api.gdeltproject.org/api/v2/doc/doc?${params.toString()}`;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    const res = await fetch(url, { headers: { 'user-agent': 'deepfake-record/1.0' } });
-    if (res.ok) {
-      const text = await res.text();
-      let json;
-      try {
-        json = JSON.parse(text);
-      } catch {
-        throw new Error(`GDELT returned non-JSON success payload: ${text.slice(0, 200)}`);
+  for (let attempt = 0; attempt < totalAttempts; attempt += 1) {
+    const params = new URLSearchParams({
+      query,
+      mode: 'artlist',
+      maxrecords: String(maxByAttempt[Math.min(attempt, maxByAttempt.length - 1)]),
+      format: 'json',
+      sort: 'datedesc',
+    });
+    const url = `https://api.gdeltproject.org/api/v2/doc/doc?${params.toString()}`;
+    const timeoutMs = 10000 + attempt * 4000;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'user-agent': 'deepfake-record/1.0 (+contact: deepfake-record)',
+          accept: 'application/json,text/plain,*/*',
+        },
+        signal: controller.signal,
+      });
+
+      if (res.ok) {
+        const text = await res.text();
+        let json;
+        try {
+          json = JSON.parse(text);
+        } catch {
+          throw new Error(`GDELT returned non-JSON success payload: ${text.slice(0, 200)}`);
+        }
+        return Array.isArray(json.articles) ? json.articles : [];
       }
-      return Array.isArray(json.articles) ? json.articles : [];
-    }
 
-    const body = await res.text();
-    if (res.status === 429 && attempt < 2) {
-      await sleep(6000 * (attempt + 1));
-      continue;
-    }
+      const body = await res.text();
+      if ((res.status === 429 || res.status >= 500) && attempt < totalAttempts - 1) {
+        const base = res.status === 429 ? 4500 : 2500;
+        await sleep(base + attempt * 2000);
+        continue;
+      }
 
-    throw new Error(`GDELT request failed (${res.status}): ${body.slice(0, 300)}`);
+      throw new Error(`GDELT request failed (${res.status}): ${body.slice(0, 300)}`);
+    } catch (err) {
+      lastError = err;
+      if (attempt < totalAttempts - 1) {
+        await sleep(1800 + attempt * 1600);
+        continue;
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
   }
+
+  if (lastError) throw lastError;
   return [];
 }
 
