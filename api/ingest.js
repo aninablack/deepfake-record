@@ -205,6 +205,16 @@ function dedupeIncidents(items) {
   };
 
   const pick = (a, b) => {
+    const aUrl = String(a?.article_url || "").trim();
+    const bUrl = String(b?.article_url || "").trim();
+    const aHasLink = !!aUrl;
+    const bHasLink = !!bUrl;
+    if (aHasLink !== bHasLink) return bHasLink ? b : a;
+
+    const aHomepage = isHomepageLikeUrl(aUrl);
+    const bHomepage = isHomepageLikeUrl(bUrl);
+    if (aHomepage !== bHomepage) return bHomepage ? a : b;
+
     const aDoc = String(a?.image_type || "").toLowerCase() === "documented" && !!String(a?.image_url || "").trim();
     const bDoc = String(b?.image_type || "").toLowerCase() === "documented" && !!String(b?.image_url || "").trim();
     if (aDoc !== bDoc) return bDoc ? b : a;
