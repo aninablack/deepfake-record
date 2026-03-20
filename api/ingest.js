@@ -86,12 +86,29 @@ function hasStrongDeepfakeSignal(text) {
   );
 }
 
+const TRUSTED_DEEPFAKE_DOMAINS = [
+  'bellingcat.com',
+  'dfrlab.org',
+  'euvsdisinfo.eu',
+  'snopes.com',
+  'politifact.com',
+  'fullfact.org',
+  'bleepingcomputer.com',
+  'krebsonsecurity.com',
+  '404media.co',
+  'therecord.media',
+];
+
 function passesStrictRelevance(article, title, description) {
   const sourceType = article.source_type || 'news';
   const full = `${title} ${description} ${article.url || ''}`;
   const titleSignal = hasStrongDeepfakeSignal(title);
   const fullSignal = hasStrongDeepfakeSignal(full);
   const relevance = deepfakeRelevanceScore(title, description);
+  const domain = String(article.domain || article.source_domain || '').toLowerCase();
+  const isTrusted = TRUSTED_DEEPFAKE_DOMAINS.some((d) => domain.includes(d));
+
+  if (isTrusted && fullSignal) return true;
 
   // For fact-check feeds, allow softer wording if relevance still indicates deepfake context.
   if (sourceType === 'factcheck') {
