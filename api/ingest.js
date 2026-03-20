@@ -81,7 +81,7 @@ function isExcludedByTitle(title) {
 }
 
 function hasStrongDeepfakeSignal(text) {
-  return /(deepfake|deep fake|voice clone|cloned voice|face swap|fake audio|fake video|ai porn|non-consensual|synthetic media|manipulated media|digital forgery|ai impersonation)/i.test(
+  return /(deepfake|deep fake|voice clone|cloned voice|face swap|fake audio|fake video|ai porn|non-consensual|synthetic media|manipulated media|digital forgery|ai impersonation|synthetic voice|audio cloning|ai-generated image|ai-generated video|generative ai fraud|identity fraud|ai fraud|fake likeness|unauthorized likeness|ai clone|cloned likeness|liveness detection|biometric fraud|synthetic identity|ai impersonat|fake celebrity|fake politician|fabricated video|fabricated audio|fabricated image|forged video|forged image|ai-powered scam|deepfake porn|deepfake fraud|deepfake election|deepfake celebrity|deepfake political|image manipulation|video manipulation|audio manipulation)/i.test(
     String(text || '')
   );
 }
@@ -592,6 +592,10 @@ async function normalize(client, article, index, dropCounters = null) {
     'wired.com',
     'arstechnica.com',
     'theverge.com',
+    'technologyreview.com',
+    'ftc.gov',
+    'justice.gov',
+    'ncsc.gov.uk',
   ];
   const description =
     article.description ||
