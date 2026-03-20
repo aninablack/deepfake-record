@@ -9,17 +9,19 @@ module.exports = async (req, res) => {
     const { data, error } = await client
       .from("incidents")
       .select("id,title,article_url,image_url,image_type,source_domain,source_type,published_at")
-      .ilike("source_domain", "%google.com%")
       .order("published_at", { ascending: false })
-      .limit(limit);
+      .limit(Math.min(limit * 3, 2000));
 
     if (error) throw error;
 
     const rows = (data || []).filter((r) => {
+      const sourceDomain = String(r.source_domain || "").toLowerCase();
+      const isGoogle = sourceDomain.includes("google.com") || sourceDomain.includes("news.google.com");
+      if (!isGoogle) return false;
       const imageType = String(r.image_type || "").toLowerCase();
       const imageUrl = String(r.image_url || "").trim();
       return !imageUrl || imageType !== "documented";
-    });
+    }).slice(0, limit);
 
     let checked = 0;
     let updated = 0;
@@ -72,4 +74,3 @@ module.exports = async (req, res) => {
     res.status(500).json({ ok: false, error: error.message });
   }
 };
-
