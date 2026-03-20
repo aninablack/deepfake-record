@@ -4,9 +4,7 @@ This project keeps your approved design and wires it to live data.
 
 ## What is automated
 - Poll GDELT every 15 minutes via `api/ingest`
-- Pull free RSS feeds (Google News + fact-check publishers)
-- Pull Reddit new posts from configured subreddits
-- Reddit supports both subreddit search and keyword fallback via `REDDIT_QUERY`
+- Pull direct RSS feeds from fact-check, media, cyber, government, and platform-policy sources
 - Auto-categorize incidents (`political`, `fraud`, `celeb`, `synthetic`, `audio`) using keyword heuristics
 - Use article image when available; fallback to free Pollinations image placeholders
 - Normalize all sources into one incidents table (`source_type`: `news`, `factcheck`, `social_report`)
@@ -19,6 +17,7 @@ This project keeps your approved design and wires it to live data.
 1. Create a Supabase project.
 2. Run [`schema.sql`](./schema.sql) in Supabase SQL editor.
 3. Create `.env` from `.env.example` and fill keys.
+   Required server env vars: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` (or alias `SUPABASE_SERVICE_KEY`).
 4. Install deps: `npm install`
 5. Run local server: `npm run dev`
 6. Open `http://localhost:3000`

@@ -215,6 +215,12 @@ function dedupeAndFilter(rows) {
       String(row.image_type || "").toLowerCase() === "documented" && !!String(row.image_url || "").trim();
     const isBadThumb = isGenericGoogleThumb || (!isDocumentedSource && isLowQualityThumb(rawImage));
     const isDocumented = !isBadThumb && isDocumentedSource;
+    const isGoogleWrapperRow =
+      isGoogleDomain(row.source_domain) &&
+      /news\.google\.com\/rss\/articles\//i.test(String(row.article_url || ""));
+
+    // Hard cut: drop Google wrapper cards unless they carry a documented image.
+    if (isGoogleWrapperRow && !isDocumented) continue;
 
     const next = {
       ...row,

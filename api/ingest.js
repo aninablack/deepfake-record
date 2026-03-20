@@ -377,126 +377,6 @@ async function fetchRssArticles() {
   return records;
 }
 
-async function fetchRedditArticles() {
-  const redditUser = String(process.env.REDDIT_USERNAME || '').trim();
-  const redditClientId = String(process.env.REDDIT_CLIENT_ID || '').trim();
-  const redditClientSecret = String(process.env.REDDIT_CLIENT_SECRET || '').trim();
-  const redditPassword = String(process.env.REDDIT_PASSWORD || '').trim();
-  const userAgent = redditUser
-    ? `web:deepfake-record:v1.0 (by /u/${redditUser})`
-    : 'web:deepfake-record:v1.0 (by /u/deepfake_record_bot)';
-  const canUseOAuth = !!(redditUser && redditClientId && redditClientSecret && redditPassword);
-  const subs = splitCsv(config.redditSubreddits);
-  const records = [];
-  const statuses = [];
-  let oauthToken = null;
-
-  if (canUseOAuth) {
-    try {
-      const authHeader = Buffer.from(`${redditClientId}:${redditClientSecret}`).toString('base64');
-      const tokenRes = await fetch('https://www.reddit.com/api/v1/access_token', {
-        method: 'POST',
-        headers: {
-          authorization: `Basic ${authHeader}`,
-          'content-type': 'application/x-www-form-urlencoded',
-          'user-agent': userAgent,
-        },
-        body: new URLSearchParams({
-          grant_type: 'password',
-          username: redditUser,
-          password: redditPassword,
-        }).toString(),
-      });
-      statuses.push({ subreddit: '_oauth', endpoint: 'token', status: tokenRes.status, ok: tokenRes.ok });
-      if (tokenRes.ok) {
-        const tokenJson = await tokenRes.json();
-        oauthToken = String(tokenJson?.access_token || '').trim() || null;
-      }
-    } catch (err) {
-      statuses.push({
-        subreddit: '_oauth',
-        endpoint: 'token',
-        status: 0,
-        ok: false,
-        error: String(err?.message || 'oauth token fetch failed'),
-      });
-    }
-  } else {
-    statuses.push({
-      subreddit: '_oauth',
-      endpoint: 'config',
-      status: 0,
-      ok: false,
-      error: 'missing_reddit_oauth_env',
-    });
-  }
-
-  const baseHost = oauthToken ? 'https://oauth.reddit.com' : 'https://www.reddit.com';
-  const baseHeaders = oauthToken
-    ? { 'user-agent': userAgent, authorization: `Bearer ${oauthToken}` }
-    : { 'user-agent': userAgent };
-
-  for (const sub of subs) {
-    const searchUrl = `${baseHost}/r/${encodeURIComponent(sub)}/search.json?restrict_sr=1&sort=new&limit=${config.redditMaxItemsPerSubreddit}&q=${encodeURIComponent(config.redditQuery)}`;
-    const newUrl = `${baseHost}/r/${encodeURIComponent(sub)}/new.json?limit=${config.redditMaxItemsPerSubreddit}`;
-    try {
-      let children = [];
-      const searchRes = await fetch(searchUrl, { headers: baseHeaders });
-      statuses.push({ subreddit: sub, endpoint: 'search', status: searchRes.status, ok: searchRes.ok });
-      if (searchRes.ok) {
-        const searchJson = await searchRes.json();
-        children = searchJson?.data?.children || [];
-      }
-      if (children.length === 0) {
-        const newRes = await fetch(newUrl, { headers: baseHeaders });
-        statuses.push({ subreddit: sub, endpoint: 'new', status: newRes.status, ok: newRes.ok });
-        if (!newRes.ok) continue;
-        const newJson = await newRes.json();
-        const raw = newJson?.data?.children || [];
-        const q = String(config.redditQuery || '').toLowerCase();
-        const needles = q.replace(/[()"]/g, '').split(/\s+or\s+/i).map((s) => s.trim()).filter(Boolean);
-        children = raw.filter((it) => {
-          const d = it?.data || {};
-          const hay = `${d.title || ''} ${d.selftext || ''} ${d.url || ''}`.toLowerCase();
-          return needles.some((n) => hay.includes(n.toLowerCase()));
-        });
-        if (children.length === 0) {
-          // Looser fallback when query parsing/search endpoint under-delivers.
-          children = raw.filter((it) => {
-            const d = it?.data || {};
-            const hay = `${d.title || ''} ${d.selftext || ''} ${d.url || ''}`.toLowerCase();
-            return /(deepfake|deep fake|voice clone|face swap|synthetic media|ai impersonation|fake video|fake audio|ai porn)/i.test(
-              hay
-            );
-          });
-        }
-      }
-
-      for (const item of children) {
-        const post = item?.data || {};
-        const articleUrl = post.url_overridden_by_dest || post.url || `https://www.reddit.com${post.permalink || ''}`;
-        records.push({
-          title: post.title || '',
-          url: articleUrl,
-          seendate: post.created_utc ? new Date(post.created_utc * 1000).toISOString() : null,
-          domain: post.domain || 'reddit.com',
-          sourcecountry: null,
-          language: 'en',
-          socialimage: post.thumbnail && /^https?:\/\//.test(post.thumbnail) ? post.thumbnail : null,
-          description: post.selftext || '',
-          source_type: 'social_report',
-          reddit_permalink: post.permalink ? `https://www.reddit.com${post.permalink}` : null,
-          claim_url: canonicalizeUrl(articleUrl),
-        });
-      }
-    } catch (err) {
-      statuses.push({ subreddit: sub, endpoint: 'error', status: 0, ok: false, error: String(err?.message || 'fetch failed') });
-      // Skip failed subreddit and continue.
-    }
-  }
-  return { records, statuses };
-}
-
 async function fetchGdeltByQuery(query, maxrecords) {
   const totalAttempts = 4;
   const maxByAttempt = [
@@ -780,8 +660,8 @@ module.exports = async (_req, res) => {
     }
     let rawContext = [];
     let rssRaw = [];
-    let redditRaw = [];
-    let redditStatuses = [];
+    const redditRaw = [];
+    const redditStatuses = [];
 
     try {
       rawContext = await fetchGdeltContext();
@@ -795,16 +675,6 @@ module.exports = async (_req, res) => {
       rssRaw = [];
       warnings.push('RSS fetch failed; continuing with remaining sources.');
     }
-    try {
-      const redditResult = await fetchRedditArticles();
-      redditRaw = Array.isArray(redditResult?.records) ? redditResult.records : [];
-      redditStatuses = Array.isArray(redditResult?.statuses) ? redditResult.statuses : [];
-    } catch {
-      redditRaw = [];
-      redditStatuses = [];
-      warnings.push('Reddit fetch failed; continuing with remaining sources.');
-    }
-
     const mergedRaw = [...raw, ...rssRaw, ...redditRaw];
     const normalized = await Promise.all(mergedRaw.map((item, idx) => normalize(client, item, idx)));
     const incidents = dedupeIncidents(normalized.filter(Boolean));
