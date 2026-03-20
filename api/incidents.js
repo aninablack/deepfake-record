@@ -216,6 +216,7 @@ function dedupeAndFilter(rows) {
   for (const item of byIncidentKey.values()) byId.set(item.id, item);
   for (const item of byUrl.values()) byId.set(item.id, item);
   for (const item of byTitle.values()) byId.set(item.id, item);
+
   const finalByTitle = new Map();
   for (const item of byId.values()) {
     const key = normalizeTitle(item.title);
@@ -224,9 +225,17 @@ function dedupeAndFilter(rows) {
     finalByTitle.set(key, prev ? pickPreferred(prev, item) : item);
   }
 
-  return Array.from(finalByTitle.values())
+  const finalByStory = new Map();
+  for (const item of finalByTitle.values()) {
+    const storyKey = storyFingerprint(item) || topicKey(item) || normalizeTitle(item.title);
+    if (!storyKey) continue;
+    const prev = finalByStory.get(storyKey);
+    finalByStory.set(storyKey, prev ? pickPreferred(prev, item) : item);
+  }
+
+  return Array.from(finalByStory.values())
     .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
-    .slice(0, 200);
+    .slice(0, 1200);
 }
 
 function rebalanceSources(rows, limit) {
@@ -365,8 +374,8 @@ function rebalanceSources(rows, limit) {
 
 module.exports = async (req, res) => {
   try {
-    const limit = Math.min(Number(req.query.limit || 120), 400);
-    const poolLimit = Math.min(Math.max(limit * 8, 500), 2400);
+    const limit = Math.min(Number(req.query.limit || 300), 1200);
+    const poolLimit = Math.min(Math.max(limit * 8, 1200), 6000);
     const googlePoolLimit = Math.max(20, Math.floor(poolLimit * 0.25));
     const nonGooglePoolLimit = Math.max(120, poolLimit - googlePoolLimit);
     const client = getAnonClient();
@@ -420,7 +429,7 @@ module.exports = async (req, res) => {
     const data = [...(nonGoogleData || []), ...(googleData || []), ...fallbackRows];
 
     const deduped = dedupeAndFilter(data || []);
-    const clean = rebalanceSources(deduped, limit).map((row) => {
+    const clean = deduped.slice(0, limit).map((row) => {
       const rawImage = String(row.image_url || "").toLowerCase();
       const shouldStripGenericGoogle =
         isGoogleDomain(row.source_domain) &&
