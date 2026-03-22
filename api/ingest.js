@@ -724,6 +724,11 @@ function overrideCategoryByKeywords(title, description, currentType) {
 
 async function normalize(client, article, index, dropCounters = null) {
   const title = (article.title || '').trim();
+  const lang = String(article.language || '').toLowerCase().trim();
+  if (lang && !['en', 'english'].includes(lang)) {
+    bumpDrop(dropCounters, 'dropped_non_english');
+    return null;
+  }
   const sourceType = article.source_type || 'news';
   const isFactcheck = sourceType === 'factcheck';
   const trustedDomains = [
