@@ -460,12 +460,22 @@ async function resolveGooglePublisherUrl(url, candidateLinks = []) {
 async function fetchRssArticles() {
   const feeds = rotateFeedsForRun(splitCsv(config.rssFeeds));
   const records = [];
+  const feedStats = [];
   for (const feedUrl of feeds) {
+    let status = 'error';
+    let http = null;
+    let fetchedItems = 0;
     try {
       const res = await fetch(feedUrl, { headers: rssFetchHeaders() });
-      if (!res.ok) continue;
+      http = res.status;
+      if (!res.ok) {
+        status = 'http_error';
+        feedStats.push({ feed: feedUrl, status, http, fetched_items: 0 });
+        continue;
+      }
       const xml = await res.text();
       const parsed = parseRssItems(xml).slice(0, config.rssMaxItemsPerFeed);
+      fetchedItems = parsed.length;
       for (const item of parsed) {
         const textLinks = extractUrlsFromText(`${item.title || ""} ${item.description || ""}`);
         const allLinks = [...(item.links || []), ...textLinks];
@@ -504,11 +514,13 @@ async function fetchRssArticles() {
           claim_url: claimUrl,
         });
       }
+      status = 'ok';
+      feedStats.push({ feed: feedUrl, status, http, fetched_items: fetchedItems });
     } catch {
-      // Skip failed feed and continue.
+      feedStats.push({ feed: feedUrl, status, http, fetched_items: 0 });
     }
   }
-  return { records, feed_count: feeds.length };
+  return { records, feed_count: feeds.length, feed_stats: feedStats };
 }
 
 async function fetchNewsDataArticles() {
@@ -983,6 +995,7 @@ module.exports = async (_req, res) => {
     let rawContext = [];
     let rssRaw = [];
     let rssFeedCount = 0;
+    let rssFeedStats = [];
     let newsDataRaw = [];
     let newsDataStatus = 'disabled';
     let newsDataHttp = null;
@@ -1002,9 +1015,11 @@ module.exports = async (_req, res) => {
       const rssResult = await fetchRssArticles();
       rssRaw = Array.isArray(rssResult?.records) ? rssResult.records : [];
       rssFeedCount = Number(rssResult?.feed_count || 0);
+      rssFeedStats = Array.isArray(rssResult?.feed_stats) ? rssResult.feed_stats : [];
     } catch {
       rssRaw = [];
       rssFeedCount = 0;
+      rssFeedStats = [];
       warnings.push('RSS fetch failed; continuing with remaining sources.');
     }
     try {
@@ -1068,6 +1083,7 @@ module.exports = async (_req, res) => {
       fetched_gdelt: raw.length,
       fetched_rss: rssRaw.length,
       fetched_rss_feeds: rssFeedCount,
+      fetched_rss_by_feed: rssFeedStats,
       fetched_newsdata: newsDataRaw.length,
       newsdata_status: newsDataStatus,
       newsdata_http: newsDataHttp,
