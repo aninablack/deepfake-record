@@ -521,19 +521,32 @@ async function fetchNewsDataArticles() {
   const query = rawQuery.replace(/^\((.*)\)$/s, '$1').trim();
   // Free tier supports up to 10 articles per request; enforce hard cap to avoid 422.
   const size = Math.max(1, Math.min(Number(process.env.NEWSDATA_MAX_RECORDS || 10), 10));
-  const url = new URL('https://newsdata.io/api/1/news');
-  url.searchParams.set('apikey', apiKey);
-  url.searchParams.set('language', 'en');
-  url.searchParams.set('q', query);
-  url.searchParams.set('size', String(size));
+  const buildUrl = ({ q, includeLanguage = true }) => {
+    const u = new URL('https://newsdata.io/api/1/news');
+    u.searchParams.set('apikey', apiKey);
+    if (includeLanguage) u.searchParams.set('language', 'en');
+    u.searchParams.set('q', q);
+    u.searchParams.set('size', String(size));
+    return u.toString();
+  };
 
   try {
-    const res = await fetch(url.toString(), {
+    let res = await fetch(buildUrl({ q: query, includeLanguage: true }), {
       headers: {
         accept: 'application/json',
         'user-agent': 'deepfake-record/1.0 (+https://deepfake-record.vercel.app)',
       },
     });
+    if (res.status === 422) {
+      // Provider-side validation can reject richer queries/filters on some plans.
+      // Retry with a minimal, broadly-compatible payload.
+      res = await fetch(buildUrl({ q: 'deepfake', includeLanguage: false }), {
+        headers: {
+          accept: 'application/json',
+          'user-agent': 'deepfake-record/1.0 (+https://deepfake-record.vercel.app)',
+        },
+      });
+    }
     if (!res.ok) return { records: [], status: 'http_error', http: res.status };
     const json = await res.json();
     const rows = Array.isArray(json?.results) ? json.results : [];
