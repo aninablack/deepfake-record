@@ -734,7 +734,7 @@ async function normalize(client, article, index, dropCounters = null) {
   const trustedDomains = [
     'bellingcat.com',
     'dfrlab.org',
-    'euvsdisinfo.eu',
+    'disinfo.eu',
     'snopes.com',
     'politifact.com',
     'fullfact.org',
@@ -742,9 +742,17 @@ async function normalize(client, article, index, dropCounters = null) {
     'krebsonsecurity.com',
     '404media.co',
     'therecord.media',
+    'cyberscoop.com',
+    'propublica.org',
+    'theintercept.com',
+    'restofworld.org',
+    'theguardian.com',
+    'bbc.co.uk',
+    'bbc.com',
     'wired.com',
     'arstechnica.com',
     'theverge.com',
+    'techcrunch.com',
     'technologyreview.com',
     'ftc.gov',
     'justice.gov',
@@ -773,9 +781,11 @@ async function normalize(client, article, index, dropCounters = null) {
   }
   const fullText = `${title} ${description} ${article.url || ''}`;
   const isTrustedSource = trustedDomains.some((d) => String(article.domain || '').toLowerCase().includes(d));
-  const trustedSignalPass = isTrustedSource && hasStrongDeepfakeSignal(fullText);
+  const relevanceScore = deepfakeRelevanceScore(title, description);
+  const trustedSignalPass =
+    isTrustedSource && (hasStrongDeepfakeSignal(fullText) || relevanceScore >= 1);
   const factcheckCandidate =
-    isFactcheck && (deepfakeRelevanceScore(title, description) >= 1 || hasStrongDeepfakeSignal(fullText));
+    isFactcheck && (relevanceScore >= 1 || hasStrongDeepfakeSignal(fullText));
   if (!trustedSignalPass && !isFactcheck && !isDeepfakeRelevant(fullText)) {
     bumpDrop(dropCounters, 'dropped_not_deepfake_relevant');
     return null;
@@ -790,7 +800,7 @@ async function normalize(client, article, index, dropCounters = null) {
   }
   const incidentCandidate = isIncidentCandidate(article, title, description);
   // Fact-check sources are already curated; avoid over-pruning due to softer wording.
-  if (!trustedSignalPass && isFactcheck && deepfakeRelevanceScore(title, description) < 1) {
+  if (!trustedSignalPass && isFactcheck && relevanceScore < 1) {
     bumpDrop(dropCounters, 'dropped_factcheck_relevance_floor');
     return null;
   }
