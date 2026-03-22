@@ -707,12 +707,18 @@ function bumpDrop(dropCounters, key) {
 function overrideCategoryByKeywords(title, description, currentType) {
   const text = `${title || ''} ${description || ''}`.toLowerCase();
   const politicalPattern =
-    /(election|government|minister|parliament|senate|president|campaign|propaganda|state media|disinformation|russia|china|iran|military|councillor|governor|legislation|bill|law|congress|fbi|cia|police|court|judge|criminal|lawmaker|politician)/i;
+    /(election|vote|voting|government|minister|prime minister|parliament|senate|president|campaign|propaganda|state media|disinformation|russia|china|iran|military|councillor|governor|legislation|bill|law|congress|fbi|cia|police|court|judge|criminal|lawmaker|politician|policy|regulation|gov\s*\.?\s*shapiro|schools?)/i;
   const fraudPattern =
-    /(scam|wire transfer|bank|phishing|financial|crypto|investment|impersonat|money|romance scam|security|ftc|doj|arrest|charged|lawsuit|sued|fraud|theft|extortion|identity theft)/i;
+    /(scam|wire transfer|bank|phishing|financial|crypto|investment|impersonat|money|romance scam|security|ftc|doj|arrest|charged|lawsuit|sued|fraud|theft|extortion|identity theft|sexualized deepfake|sold fake|fake porn|pornograf|stupro digitale|virtual rape|personality rights misuse)/i;
+
+  // Keep obvious fact-check exemplars in entertainment unless there is explicit
+  // political/fraud language to avoid overfitting false positives.
+  const entertainmentFactcheckPattern =
+    /(fact check:|fake video shows|does not show|ai-generated\.)/i;
 
   if (fraudPattern.test(text)) return 'fraud';
   if (politicalPattern.test(text)) return 'political';
+  if (entertainmentFactcheckPattern.test(text) && currentType === 'entertainment') return 'entertainment';
   return currentType;
 }
 
