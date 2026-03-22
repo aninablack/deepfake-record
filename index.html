@@ -279,6 +279,28 @@
   .df-filter-btn:hover { color: #111; }
   .df-filter-btn.active { color: #111; border-bottom-color: #111; font-weight: 500; }
 
+  .df-search-wrap {
+    margin-left: auto;
+    min-width: 220px;
+    max-width: 360px;
+    width: 100%;
+  }
+
+  .df-search-input {
+    width: 100%;
+    border: 0.5px solid #bbb;
+    background: #fff;
+    color: #111;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 13px;
+    padding: 8px 10px;
+    outline: none;
+  }
+
+  .df-search-input:focus {
+    border-color: #111;
+  }
+
 
   .df-gallery {
     padding: 28px 32px;
@@ -438,6 +460,8 @@
       line-height: 1.15;
       flex: 0 0 auto;
     }
+    .df-search-wrap { margin-left: 10px; min-width: 170px; max-width: 240px; flex: 0 0 auto; }
+    .df-search-input { font-size: 14px; padding: 8px 9px; }
     .df-resource-head { font-size: 14px; letter-spacing: 0.1em; }
     .df-resource-count { font-size: 13px; }
     .df-resource-links a { font-size: 16px; }
@@ -783,44 +807,44 @@
     <button class="df-filter-btn" onclick="filterCards('political', this)">Political</button>
     <button class="df-filter-btn" onclick="filterCards('fraud', this)">Fraud</button>
     <button class="df-filter-btn" onclick="filterCards('entertainment', this)">Entertainment</button>
+    <div class="df-search-wrap">
+      <input id="keywordSearch" class="df-search-input" type="search" placeholder="Search incidents, keywords, sources..." aria-label="Search incidents by keyword" oninput="setSearchQuery(this.value)" />
+    </div>
   </div>
 
   <div class="df-resources">
     <div class="df-resource-panel">
       <button class="df-resource-head" aria-expanded="false" onclick="toggleResourcePanel('sourcesLinks', this)">
-        <span class="df-resource-head-left">Data Sources <span class="df-resource-count">(29)</span></span>
+        <span class="df-resource-head-left">Data Sources <span class="df-resource-count">(26)</span></span>
         <span class="df-resource-caret">›</span>
       </button>
       <div class="df-resource-links" id="sourcesLinks">
         <a href="https://www.gdeltproject.org/" target="_blank" rel="noopener noreferrer">GDELT Project</a>
-        <a href="https://news.google.com/" target="_blank" rel="noopener noreferrer">Google News (discovery)</a>
-        <a href="https://www.bbc.com/news/reality_check" target="_blank" rel="noopener noreferrer">BBC Reality Check</a>
-        <a href="https://www.bbc.com/news/technology" target="_blank" rel="noopener noreferrer">BBC Technology</a>
-        <a href="https://apnews.com/" target="_blank" rel="noopener noreferrer">AP News</a>
-        <a href="https://www.reuters.com/" target="_blank" rel="noopener noreferrer">Reuters</a>
-        <a href="https://www.washingtonpost.com/" target="_blank" rel="noopener noreferrer">Washington Post</a>
-        <a href="https://www.nytimes.com/section/technology" target="_blank" rel="noopener noreferrer">New York Times</a>
-        <a href="https://www.snopes.com/" target="_blank" rel="noopener noreferrer">Snopes</a>
         <a href="https://www.politifact.com/" target="_blank" rel="noopener noreferrer">PolitiFact</a>
-        <a href="https://factcheck.afp.com/" target="_blank" rel="noopener noreferrer">AFP Fact Check</a>
         <a href="https://fullfact.org/" target="_blank" rel="noopener noreferrer">Full Fact</a>
         <a href="https://leadstories.com/" target="_blank" rel="noopener noreferrer">Lead Stories</a>
         <a href="https://www.bellingcat.com/" target="_blank" rel="noopener noreferrer">Bellingcat</a>
         <a href="https://dfrlab.org/" target="_blank" rel="noopener noreferrer">DFRLab</a>
         <a href="https://euvsdisinfo.eu/" target="_blank" rel="noopener noreferrer">EUvsDisinfo</a>
-        <a href="https://www.bleepingcomputer.com/" target="_blank" rel="noopener noreferrer">BleepingComputer</a>
+        <a href="https://feeds.bbci.co.uk/news/bbcverify/rss.xml" target="_blank" rel="noopener noreferrer">BBC Verify</a>
+        <a href="https://www.bbc.com/news/technology" target="_blank" rel="noopener noreferrer">BBC Technology</a>
         <a href="https://krebsonsecurity.com/" target="_blank" rel="noopener noreferrer">KrebsOnSecurity</a>
         <a href="https://therecord.media/" target="_blank" rel="noopener noreferrer">The Record</a>
-        <a href="https://www.europol.europa.eu/" target="_blank" rel="noopener noreferrer">Europol</a>
-        <a href="https://www.interpol.int/" target="_blank" rel="noopener noreferrer">Interpol</a>
+        <a href="https://cyberscoop.com/" target="_blank" rel="noopener noreferrer">CyberScoop</a>
+        <a href="https://www.darkreading.com/" target="_blank" rel="noopener noreferrer">Dark Reading</a>
+        <a href="https://www.404media.co/" target="_blank" rel="noopener noreferrer">404 Media</a>
+        <a href="https://www.propublica.org/" target="_blank" rel="noopener noreferrer">ProPublica</a>
+        <a href="https://theintercept.com/" target="_blank" rel="noopener noreferrer">The Intercept</a>
+        <a href="https://restofworld.org/" target="_blank" rel="noopener noreferrer">Rest of World</a>
+        <a href="https://www.technologyreview.com/" target="_blank" rel="noopener noreferrer">MIT Technology Review</a>
+        <a href="https://www.theverge.com/" target="_blank" rel="noopener noreferrer">The Verge</a>
+        <a href="https://techcrunch.com/" target="_blank" rel="noopener noreferrer">TechCrunch</a>
+        <a href="https://www.theguardian.com/" target="_blank" rel="noopener noreferrer">The Guardian</a>
         <a href="https://www.ftc.gov/" target="_blank" rel="noopener noreferrer">FTC</a>
         <a href="https://www.justice.gov/" target="_blank" rel="noopener noreferrer">US DOJ</a>
         <a href="https://www.ncsc.gov.uk/" target="_blank" rel="noopener noreferrer">UK NCSC</a>
-        <a href="https://www.cisa.gov/" target="_blank" rel="noopener noreferrer">CISA</a>
         <a href="https://blog.youtube/" target="_blank" rel="noopener noreferrer">YouTube Blog</a>
         <a href="https://about.fb.com/news/" target="_blank" rel="noopener noreferrer">Meta Newsroom</a>
-        <a href="https://newsroom.tiktok.com/" target="_blank" rel="noopener noreferrer">TikTok Newsroom</a>
-        <a href="https://blog.x.com/" target="_blank" rel="noopener noreferrer">X Blog</a>
       </div>
     </div>
     <div class="df-resource-panel">
@@ -888,6 +912,7 @@ let tickerItems = [
 let counter = 2847;
 let scannedCounter = 2847;
 let filter = 'all';
+let searchQuery = '';
 let mode = 'live';
 let liveTotal = 0;
 let verifiedTotal = 0;
@@ -1063,6 +1088,28 @@ function filterCards(type, btn) {
   updateHeroCounters();
 }
 
+function setSearchQuery(value) {
+  searchQuery = String(value || '').trim().toLowerCase();
+  renderGallery();
+  updateHeroCounters();
+}
+
+function matchesSearch(card) {
+  if (!searchQuery) return true;
+  const haystack = [
+    card.title,
+    card.summary,
+    card.source,
+    card.platform,
+    card.articleUrl,
+    card.claimUrl,
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(searchQuery);
+}
+
 function toggleResourcePanel(panelId, btn) {
   const panel = document.getElementById(panelId);
   if (!panel) return;
@@ -1160,7 +1207,8 @@ function renderGallery() {
   const activeCards = getActiveCards();
   const cards = activeCards;
   const linkableCards = cards.filter((c) => !!String(c.articleUrl || c.claimUrl || '').trim());
-  const list = filter === 'all' ? linkableCards : linkableCards.filter((c) => c.type === filter);
+  const categoryFiltered = filter === 'all' ? linkableCards : linkableCards.filter((c) => c.type === filter);
+  const list = categoryFiltered.filter(matchesSearch);
   document.getElementById('gallery').innerHTML = list.map((c) => `
     <div class="df-card" data-url="${safeText(c.articleUrl || c.claimUrl || '')}">
       <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">
@@ -1319,7 +1367,8 @@ async function loadLiveData() {
         `${liveTotal.toLocaleString()} live incidents logged`,
         `${verifiedTotal.toLocaleString()} verified archive incidents`,
         `${scannedCounter.toLocaleString()} items scanned`,
-        `Last incident: ${statsPayload.latest_minutes_ago ? `${statsPayload.latest_minutes_ago} minutes ago` : 'unknown'}`,
+        `Last ingest run: ${statsPayload.latest_ingest_minutes_ago ? `${statsPayload.latest_ingest_minutes_ago} minutes ago` : 'unknown'}`,
+        `Latest incident age: ${statsPayload.latest_incident_minutes_ago ? `${statsPayload.latest_incident_minutes_ago} minutes` : 'unknown'}`,
         `Top platform: ${statsPayload.top_platform || 'Unknown'}`,
         'Status: reported as synthetic',
         'Auto-categorized feed',
@@ -1362,7 +1411,8 @@ async function loadLiveData() {
 function updateHeroCounters() {
   const activeCards = getActiveCards();
   const linkableCards = activeCards.filter((c) => !!String(c.articleUrl || c.claimUrl || '').trim());
-  const visibleCards = filter === 'all' ? linkableCards : linkableCards.filter((c) => c.type === filter);
+  const categoryFiltered = filter === 'all' ? linkableCards : linkableCards.filter((c) => c.type === filter);
+  const visibleCards = categoryFiltered.filter(matchesSearch);
   const usingVerified = mode === 'verified' && verifiedTotal > 0;
   const fallbackLiveTotal = liveCards.length || visibleCards.length || 0;
   const fallbackVerifiedTotal = verifiedCards.length || visibleCards.length || 0;
