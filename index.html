@@ -966,7 +966,8 @@ function imageHtml(url, title, summary = '', category = '') {
     !/^(null|undefined|none|n\/a)$/i.test(normalizedUrl) &&
     !isLikelyLogoImage(normalizedUrl);
   if (!hasSourceImage) {
-    return `<div class="df-no-image-wrap"><div class="df-no-image-title">${safeTitle}</div></div>`;
+    const fallbackSrc = categoryIllustrationImage(category);
+    return `<img src="${safeText(fallbackSrc)}" alt="Incident illustration" data-fallback-title="${safeTitle}" data-fallback-summary="${safeSummary}" data-fallback-category="${safeCategory}" data-image-origin="illustrative" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"/>`;
   }
   const source = proxiedImageUrl(normalizedUrl);
   return `<img src="${safeText(source)}" alt="Incident image" data-fallback-title="${safeTitle}" data-fallback-summary="${safeSummary}" data-fallback-category="${safeCategory}" data-image-origin="documented" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"/>`;
@@ -1048,7 +1049,7 @@ function handleImageError(imgEl) {
     const title = imgEl.getAttribute('data-fallback-title') || '';
     const summary = imgEl.getAttribute('data-fallback-summary') || '';
     const category = imgEl.getAttribute('data-fallback-category') || '';
-    imgEl.src = generatedFallbackImageFromContext(title, summary, category);
+    imgEl.src = categoryIllustrationImage(category);
     imgEl.dataset.imageOrigin = 'illustrative';
     return;
   }
