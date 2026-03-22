@@ -515,10 +515,12 @@ async function fetchNewsDataArticles() {
   const apiKey = String(process.env.NEWSDATA_API_KEY || '').trim();
   if (!apiKey) return { records: [], status: 'missing_key', http: null };
 
-  const query =
+  const rawQuery =
     String(process.env.NEWSDATA_QUERY || '').trim() ||
-    '(deepfake OR "voice clone" OR "synthetic media" OR "AI impersonation")';
-  const size = Math.max(10, Math.min(Number(process.env.NEWSDATA_MAX_RECORDS || 40), 100));
+    'deepfake OR "voice clone" OR "synthetic media" OR "AI impersonation"';
+  const query = rawQuery.replace(/^\((.*)\)$/s, '$1').trim();
+  // Free tier supports up to 10 articles per request; enforce hard cap to avoid 422.
+  const size = Math.max(1, Math.min(Number(process.env.NEWSDATA_MAX_RECORDS || 10), 10));
   const url = new URL('https://newsdata.io/api/1/news');
   url.searchParams.set('apikey', apiKey);
   url.searchParams.set('language', 'en');
