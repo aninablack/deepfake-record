@@ -513,7 +513,7 @@ async function fetchRssArticles() {
 
 async function fetchNewsDataArticles() {
   const apiKey = String(process.env.NEWSDATA_API_KEY || '').trim();
-  if (!apiKey) return [];
+  if (!apiKey) return { records: [], status: 'missing_key', http: null };
 
   const query =
     String(process.env.NEWSDATA_QUERY || '').trim() ||
@@ -532,10 +532,10 @@ async function fetchNewsDataArticles() {
         'user-agent': 'deepfake-record/1.0 (+https://deepfake-record.vercel.app)',
       },
     });
-    if (!res.ok) return [];
+    if (!res.ok) return { records: [], status: 'http_error', http: res.status };
     const json = await res.json();
     const rows = Array.isArray(json?.results) ? json.results : [];
-    return rows.map((item) => {
+    const records = rows.map((item) => {
       const link = canonicalizeUrl(item?.link || '');
       const domain = String(item?.source_id || '').trim().toLowerCase() || (() => {
         try {
@@ -558,8 +558,9 @@ async function fetchNewsDataArticles() {
         claim_url: null,
       };
     });
+    return { records, status: rows.length ? 'ok' : 'ok_zero_results', http: res.status };
   } catch {
-    return [];
+    return { records: [], status: 'fetch_failed', http: null };
   }
 }
 
@@ -963,6 +964,8 @@ module.exports = async (_req, res) => {
     let rssRaw = [];
     let rssFeedCount = 0;
     let newsDataRaw = [];
+    let newsDataStatus = 'disabled';
+    let newsDataHttp = null;
     const redditRaw = [];
     const redditStatuses = [];
 
@@ -986,13 +989,19 @@ module.exports = async (_req, res) => {
     try {
       const allowNewsData = await canUseNewsDataToday(client);
       if (allowNewsData) {
-        newsDataRaw = await fetchNewsDataArticles();
+        const newsDataResult = await fetchNewsDataArticles();
+        newsDataRaw = Array.isArray(newsDataResult?.records) ? newsDataResult.records : [];
+        newsDataStatus = String(newsDataResult?.status || 'unknown');
+        newsDataHttp = newsDataResult?.http ?? null;
       } else if (String(process.env.NEWSDATA_API_KEY || '').trim()) {
         newsDataRaw = [];
+        newsDataStatus = 'daily_cap_reached';
         warnings.push('NewsData quota cap reached for today; skipped.');
       }
     } catch {
       newsDataRaw = [];
+      newsDataStatus = 'fetch_failed';
+      newsDataHttp = null;
       warnings.push('NewsData fetch failed; continuing with remaining sources.');
     }
     const mergedRaw = [...raw, ...rssRaw, ...newsDataRaw, ...redditRaw];
@@ -1037,6 +1046,8 @@ module.exports = async (_req, res) => {
       fetched_rss: rssRaw.length,
       fetched_rss_feeds: rssFeedCount,
       fetched_newsdata: newsDataRaw.length,
+      newsdata_status: newsDataStatus,
+      newsdata_http: newsDataHttp,
       fetched_reddit: redditRaw.length,
       reddit_statuses: redditStatuses,
       context_fetched: rawContext.length,
