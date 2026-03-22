@@ -563,6 +563,33 @@ async function fetchNewsDataArticles() {
   }
 }
 
+function utcDayRange(date = new Date()) {
+  const d = new Date(date);
+  const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
+  const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 0, 0, 0));
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+async function canUseNewsDataToday(client) {
+  const apiKey = String(process.env.NEWSDATA_API_KEY || '').trim();
+  if (!apiKey) return false;
+
+  // NewsData free tier is typically 200 credits/day.
+  const limit = Math.max(0, Number(process.env.NEWSDATA_DAILY_CALL_LIMIT || 120));
+  if (!Number.isFinite(limit) || limit <= 0) return false;
+
+  const { start, end } = utcDayRange();
+  const { count, error } = await client
+    .from('ingest_runs')
+    .select('id', { count: 'exact', head: true })
+    .gte('run_at', start)
+    .lt('run_at', end);
+
+  if (error) return true;
+  const callsToday = Number(count || 0);
+  return callsToday < limit;
+}
+
 async function fetchGdeltByQuery(query, maxrecords) {
   const totalAttempts = 4;
   const maxByAttempt = [
@@ -957,7 +984,13 @@ module.exports = async (_req, res) => {
       warnings.push('RSS fetch failed; continuing with remaining sources.');
     }
     try {
-      newsDataRaw = await fetchNewsDataArticles();
+      const allowNewsData = await canUseNewsDataToday(client);
+      if (allowNewsData) {
+        newsDataRaw = await fetchNewsDataArticles();
+      } else if (String(process.env.NEWSDATA_API_KEY || '').trim()) {
+        newsDataRaw = [];
+        warnings.push('NewsData quota cap reached for today; skipped.');
+      }
     } catch {
       newsDataRaw = [];
       warnings.push('NewsData fetch failed; continuing with remaining sources.');
