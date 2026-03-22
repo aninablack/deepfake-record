@@ -99,6 +99,24 @@ const TRUSTED_DEEPFAKE_DOMAINS = [
   'therecord.media',
 ];
 
+const RSS_USER_AGENTS = [
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (compatible; deepfake-record/1.0; +https://deepfake-record.vercel.app)',
+];
+
+function rssFetchHeaders() {
+  const ua = RSS_USER_AGENTS[Math.floor(Math.random() * RSS_USER_AGENTS.length)];
+  return {
+    'user-agent': ua,
+    accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, text/html;q=0.8, */*;q=0.7',
+    'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
+    pragma: 'no-cache',
+    'cache-control': 'no-cache',
+  };
+}
+
 function passesStrictRelevance(article, title, description) {
   const full = `${title} ${description} ${article.url || ''}`;
   const titleSignal = hasStrongDeepfakeSignal(title);
@@ -414,7 +432,7 @@ async function resolveGooglePublisherUrl(url, candidateLinks = []) {
   const input = canonicalizeUrl(url);
   if (!input || !isGoogleNewsUrl(input)) return input;
 
-  const headers = { "user-agent": "deepfake-record/1.0 (+contact: deepfake-record)" };
+  const headers = rssFetchHeaders();
 
   try {
     const res = await fetch(input, { redirect: "follow", headers });
@@ -444,7 +462,7 @@ async function fetchRssArticles() {
   const records = [];
   for (const feedUrl of feeds) {
     try {
-      const res = await fetch(feedUrl, { headers: { 'user-agent': 'deepfake-record/1.0' } });
+      const res = await fetch(feedUrl, { headers: rssFetchHeaders() });
       if (!res.ok) continue;
       const xml = await res.text();
       const parsed = parseRssItems(xml).slice(0, config.rssMaxItemsPerFeed);
@@ -491,6 +509,58 @@ async function fetchRssArticles() {
     }
   }
   return { records, feed_count: feeds.length };
+}
+
+async function fetchNewsDataArticles() {
+  const apiKey = String(process.env.NEWSDATA_API_KEY || '').trim();
+  if (!apiKey) return [];
+
+  const query =
+    String(process.env.NEWSDATA_QUERY || '').trim() ||
+    '(deepfake OR "voice clone" OR "synthetic media" OR "AI impersonation")';
+  const size = Math.max(10, Math.min(Number(process.env.NEWSDATA_MAX_RECORDS || 40), 100));
+  const url = new URL('https://newsdata.io/api/1/news');
+  url.searchParams.set('apikey', apiKey);
+  url.searchParams.set('language', 'en');
+  url.searchParams.set('q', query);
+  url.searchParams.set('size', String(size));
+
+  try {
+    const res = await fetch(url.toString(), {
+      headers: {
+        accept: 'application/json',
+        'user-agent': 'deepfake-record/1.0 (+https://deepfake-record.vercel.app)',
+      },
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const rows = Array.isArray(json?.results) ? json.results : [];
+    return rows.map((item) => {
+      const link = canonicalizeUrl(item?.link || '');
+      const domain = String(item?.source_id || '').trim().toLowerCase() || (() => {
+        try {
+          return new URL(link).hostname.replace(/^www\./, '');
+        } catch {
+          return 'unknown';
+        }
+      })();
+      const description = String(item?.description || item?.content || '').trim();
+      return {
+        title: String(item?.title || '').trim(),
+        url: link,
+        seendate: item?.pubDate || item?.pubDateTZ || null,
+        domain,
+        sourcecountry: null,
+        language: String(item?.language || 'en').trim().toLowerCase(),
+        socialimage: canonicalizeUrl(item?.image_url || '') || null,
+        description,
+        source_type: 'news',
+        claim_url: null,
+      };
+    });
+  } catch {
+    return [];
+  }
 }
 
 async function fetchGdeltByQuery(query, maxrecords) {
@@ -865,6 +935,7 @@ module.exports = async (_req, res) => {
     let rawContext = [];
     let rssRaw = [];
     let rssFeedCount = 0;
+    let newsDataRaw = [];
     const redditRaw = [];
     const redditStatuses = [];
 
@@ -885,7 +956,13 @@ module.exports = async (_req, res) => {
       rssFeedCount = 0;
       warnings.push('RSS fetch failed; continuing with remaining sources.');
     }
-    const mergedRaw = [...raw, ...rssRaw, ...redditRaw];
+    try {
+      newsDataRaw = await fetchNewsDataArticles();
+    } catch {
+      newsDataRaw = [];
+      warnings.push('NewsData fetch failed; continuing with remaining sources.');
+    }
+    const mergedRaw = [...raw, ...rssRaw, ...newsDataRaw, ...redditRaw];
     const dropCounters = {};
     const normalized = await Promise.all(mergedRaw.map((item, idx) => normalize(client, item, idx, dropCounters)));
     const normalizedKept = normalized.filter(Boolean);
@@ -926,6 +1003,7 @@ module.exports = async (_req, res) => {
       fetched_gdelt: raw.length,
       fetched_rss: rssRaw.length,
       fetched_rss_feeds: rssFeedCount,
+      fetched_newsdata: newsDataRaw.length,
       fetched_reddit: redditRaw.length,
       reddit_statuses: redditStatuses,
       context_fetched: rawContext.length,
