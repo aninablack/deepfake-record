@@ -521,8 +521,10 @@ async function fetchNewsDataArticles() {
   const query = rawQuery.replace(/^\((.*)\)$/s, '$1').trim();
   // Free tier supports up to 10 articles per request; enforce hard cap to avoid 422.
   const size = Math.max(1, Math.min(Number(process.env.NEWSDATA_MAX_RECORDS || 10), 10));
+  const endpoint = String(process.env.NEWSDATA_ENDPOINT || 'latest').trim().toLowerCase();
+  const endpointPath = endpoint === 'news' ? 'news' : 'latest';
   const buildUrl = ({ q, includeLanguage = true }) => {
-    const u = new URL('https://newsdata.io/api/1/news');
+    const u = new URL(`https://newsdata.io/api/1/${endpointPath}`);
     u.searchParams.set('apikey', apiKey);
     if (includeLanguage) u.searchParams.set('language', 'en');
     u.searchParams.set('q', q);
@@ -547,7 +549,10 @@ async function fetchNewsDataArticles() {
         },
       });
     }
-    if (!res.ok) return { records: [], status: 'http_error', http: res.status };
+    if (!res.ok) {
+      const body = await res.text();
+      return { records: [], status: 'http_error', http: res.status, error: body.slice(0, 240) };
+    }
     const json = await res.json();
     const rows = Array.isArray(json?.results) ? json.results : [];
     const records = rows.map((item) => {
@@ -573,9 +578,9 @@ async function fetchNewsDataArticles() {
         claim_url: null,
       };
     });
-    return { records, status: rows.length ? 'ok' : 'ok_zero_results', http: res.status };
+    return { records, status: rows.length ? 'ok' : 'ok_zero_results', http: res.status, error: null };
   } catch {
-    return { records: [], status: 'fetch_failed', http: null };
+    return { records: [], status: 'fetch_failed', http: null, error: null };
   }
 }
 
@@ -981,6 +986,7 @@ module.exports = async (_req, res) => {
     let newsDataRaw = [];
     let newsDataStatus = 'disabled';
     let newsDataHttp = null;
+    let newsDataError = null;
     const redditRaw = [];
     const redditStatuses = [];
 
@@ -1008,6 +1014,7 @@ module.exports = async (_req, res) => {
         newsDataRaw = Array.isArray(newsDataResult?.records) ? newsDataResult.records : [];
         newsDataStatus = String(newsDataResult?.status || 'unknown');
         newsDataHttp = newsDataResult?.http ?? null;
+        newsDataError = newsDataResult?.error || null;
       } else if (String(process.env.NEWSDATA_API_KEY || '').trim()) {
         newsDataRaw = [];
         newsDataStatus = 'daily_cap_reached';
@@ -1017,6 +1024,7 @@ module.exports = async (_req, res) => {
       newsDataRaw = [];
       newsDataStatus = 'fetch_failed';
       newsDataHttp = null;
+      newsDataError = null;
       warnings.push('NewsData fetch failed; continuing with remaining sources.');
     }
     const mergedRaw = [...raw, ...rssRaw, ...newsDataRaw, ...redditRaw];
@@ -1063,6 +1071,7 @@ module.exports = async (_req, res) => {
       fetched_newsdata: newsDataRaw.length,
       newsdata_status: newsDataStatus,
       newsdata_http: newsDataHttp,
+      newsdata_error: newsDataError,
       fetched_reddit: redditRaw.length,
       reddit_statuses: redditStatuses,
       context_fetched: rawContext.length,
