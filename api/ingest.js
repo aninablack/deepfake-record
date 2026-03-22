@@ -704,6 +704,18 @@ function bumpDrop(dropCounters, key) {
   dropCounters[key] = Number(dropCounters[key] || 0) + 1;
 }
 
+function overrideCategoryByKeywords(title, description, currentType) {
+  const text = `${title || ''} ${description || ''}`.toLowerCase();
+  const politicalPattern =
+    /(election|government|minister|parliament|senate|president|campaign|propaganda|state media|disinformation|russia|china|iran|military|councillor|governor|legislation|bill|law|congress|fbi|cia|police|court|judge|criminal|lawmaker|politician)/i;
+  const fraudPattern =
+    /(scam|wire transfer|bank|phishing|financial|crypto|investment|impersonat|money|romance scam|security|ftc|doj|arrest|charged|lawsuit|sued|fraud|theft|extortion|identity theft)/i;
+
+  if (fraudPattern.test(text)) return 'fraud';
+  if (politicalPattern.test(text)) return 'political';
+  return currentType;
+}
+
 async function normalize(client, article, index, dropCounters = null) {
   const title = (article.title || '').trim();
   const sourceType = article.source_type || 'news';
@@ -785,6 +797,11 @@ async function normalize(client, article, index, dropCounters = null) {
   if (politicsHint && classified.type === 'entertainment') {
     classified.type = 'political';
     classified.label = 'Political';
+  }
+  const overriddenType = overrideCategoryByKeywords(title, description, classified.type);
+  if (overriddenType !== classified.type) {
+    classified.type = overriddenType;
+    classified.label = overriddenType === 'fraud' ? 'Fraud' : (overriddenType === 'political' ? 'Political' : classified.label);
   }
   const sourceDomain = article.domain || 'unknown';
   let articleUrl = canonicalizeUrl(article.url || '');
