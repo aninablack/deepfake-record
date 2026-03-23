@@ -232,7 +232,7 @@ function dedupeAndFilter(rows) {
     const fallbackIllustrative = illustrativeImageForTitle(row.title);
     const effectiveArticleUrl = unresolvedHomepage ? "" : String(row.article_url || "");
     const effectiveImageUrl = isBadThumb
-      ? (unresolvedHomepage ? fallbackIllustrative : "")
+      ? fallbackIllustrative
       : toProxyUrl(row.image_url);
 
     const next = {
@@ -245,7 +245,7 @@ function dedupeAndFilter(rows) {
       rights_status: isBadThumb ? "unknown" : row.rights_status,
       usage_note: unresolvedHomepage
         ? "Source article URL unresolved; showing illustrative image and headline context."
-        : (isBadThumb ? "No article-specific evidence image; showing headline-only card." : row.usage_note),
+        : (isBadThumb ? "No article-specific evidence image; showing illustrative fallback image." : row.usage_note),
     };
 
     const incidentKey = String(row.incident_key || "").trim();
