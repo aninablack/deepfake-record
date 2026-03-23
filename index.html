@@ -995,7 +995,7 @@ function proxiedImageUrl(url) {
   if (!u) return '';
   if (u.startsWith('/api/image-proxy?')) return u;
   if (u.includes('image.pollinations.ai')) return u;
-  return `/api/image-proxy?url=${encodeURIComponent(u)}`;
+  return `/api/image-proxy?url=${encodeURIComponent(u)}&pv=2`;
 }
 
 function generatedFallbackImage(title) {
