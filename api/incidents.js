@@ -515,21 +515,7 @@ module.exports = async (req, res) => {
 
     const deduped = dedupeAndFilter(data || []);
     const rebalanced = rebalanceSources(deduped, limit);
-    const clean = rebalanced.map((row) => {
-      const rawImage = String(row.image_url || "").toLowerCase();
-      const shouldStripGenericGoogle =
-        isGoogleDomain(row.source_domain) &&
-        (/lh3\.googleusercontent\.com/i.test(rawImage) || /lh3\.googleusercontent\.com%2f/i.test(rawImage));
-      if (!shouldStripGenericGoogle) return { ...row, ingest_source: deriveIngestSource(row) };
-      return {
-        ...row,
-        image_url: "",
-        image_type: "illustrative",
-        rights_status: "unknown",
-        usage_note: "Google aggregator thumbnail omitted; no article-specific evidence image.",
-        ingest_source: deriveIngestSource(row),
-      };
-    });
+    const clean = rebalanced.map((row) => ({ ...row, ingest_source: deriveIngestSource(row) }));
     res.status(200).json({ ok: true, incidents: clean });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message, incidents: [] });
