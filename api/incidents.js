@@ -472,7 +472,7 @@ function rebalanceSources(rows, limit) {
 module.exports = async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 300), 1200);
-    const maxAgeDays = Math.max(1, Number(process.env.MAX_ARTICLE_AGE_DAYS || 14));
+    const maxAgeDays = Math.max(1, Number(process.env.MAX_ARTICLE_AGE_DAYS || 30));
     const ageCutoffIso = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000).toISOString();
     const poolLimit = Math.min(Math.max(limit * 8, 1200), 6000);
     const googlePoolLimit = Math.max(20, Math.floor(poolLimit * 0.25));
@@ -544,9 +544,12 @@ module.exports = async (req, res) => {
     const fallbackRows = fallbackResults.flatMap((r) => (r && !r.error && Array.isArray(r.data) ? r.data : []));
     const data = [...(factcheckData || []), ...(nonGoogleData || []), ...(googleData || []), ...fallbackRows];
 
-    const deduped = dedupeAndFilter(data || []);
-    const rebalanced = rebalanceSources(deduped, limit);
-    const clean = rebalanced.map((row) => ({ ...row, ingest_source: deriveIngestSource(row) }));
+    const uniqueById = Array.from(new Map((data || []).map((row) => [String(row.id || row.source_id || Math.random()), row])).values());
+    const linkable = uniqueById
+      .filter((row) => !!String(row.article_url || row.claim_url || "").trim())
+      .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+      .slice(0, limit);
+    const clean = linkable.map((row) => ({ ...row, ingest_source: deriveIngestSource(row) }));
     res.status(200).json({ ok: true, incidents: clean });
   } catch (error) {
     res.status(500).json({ ok: false, error: error.message, incidents: [] });
