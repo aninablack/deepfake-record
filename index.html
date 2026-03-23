@@ -1394,10 +1394,7 @@ function updateHeroCounters() {
   const categoryFiltered = filter === 'all' ? linkableCards : linkableCards.filter((c) => c.type === filter);
   const visibleCards = categoryFiltered.filter(matchesSearch);
   const value = visibleCards.length;
-  const mobile = window.matchMedia && window.matchMedia('(max-width: 700px)').matches;
-  const label = mobile
-    ? 'Incidents shown'
-    : `Incidents shown · ${visibleCards.length.toLocaleString()}`;
+  const label = 'Incidents shown';
   const counterEl = document.getElementById('counter');
   const labelEl = document.getElementById('counterLabel');
   if (counterEl) counterEl.textContent = (value || 0).toLocaleString();
