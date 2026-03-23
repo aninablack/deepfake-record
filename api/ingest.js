@@ -783,7 +783,7 @@ async function normalize(client, article, index, dropCounters = null) {
   const isTrustedSource = trustedDomains.some((d) => String(article.domain || '').toLowerCase().includes(d));
   const relevanceScore = deepfakeRelevanceScore(title, description);
   const trustedSignalPass =
-    isTrustedSource && (hasStrongDeepfakeSignal(fullText) || relevanceScore >= 1);
+    isTrustedSource && (hasStrongDeepfakeSignal(fullText) || relevanceScore >= 1 || isDeepfakeRelevant(fullText));
   const factcheckCandidate =
     isFactcheck && (relevanceScore >= 1 || hasStrongDeepfakeSignal(fullText));
   if (!trustedSignalPass && !isFactcheck && !isDeepfakeRelevant(fullText)) {
