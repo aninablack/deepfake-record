@@ -1,5 +1,5 @@
 function sendFallbackImage(res) {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675"><rect width="1200" height="675" fill="#e9e6f0"/><g fill="#6f5a8d" opacity="0.55"><circle cx="260" cy="210" r="150"/><circle cx="960" cy="180" r="130"/></g><text x="600" y="360" font-family="Georgia,serif" font-size="44" text-anchor="middle" fill="#241a33">Image unavailable</text><text x="600" y="410" font-family="Arial,sans-serif" font-size="22" text-anchor="middle" fill="#4b3b66">Showing headline-only card</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="675" viewBox="0 0 1200 675"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ece8f4"/><stop offset="100%" stop-color="#d8d0e8"/></linearGradient></defs><rect width="1200" height="675" fill="url(#bg)"/><g fill="#7f6b9e" opacity="0.38"><circle cx="200" cy="220" r="170"/><circle cx="1000" cy="180" r="150"/><circle cx="620" cy="540" r="210"/></g><g stroke="#6d5a8a" stroke-width="16" opacity="0.28"><line x1="220" y1="430" x2="980" y2="430"/><line x1="300" y1="495" x2="900" y2="495"/></g></svg>`;
   res.setHeader("Content-Type", "image/svg+xml; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=86400");
   res.status(200).send(svg);
