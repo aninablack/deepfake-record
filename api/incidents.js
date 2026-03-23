@@ -472,6 +472,8 @@ function rebalanceSources(rows, limit) {
 module.exports = async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit || 300), 1200);
+    const maxAgeDays = Math.max(1, Number(process.env.MAX_ARTICLE_AGE_DAYS || 14));
+    const ageCutoffIso = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000).toISOString();
     const poolLimit = Math.min(Math.max(limit * 8, 1200), 6000);
     const googlePoolLimit = Math.max(20, Math.floor(poolLimit * 0.25));
     const nonGooglePoolLimit = Math.max(120, poolLimit - googlePoolLimit);
@@ -483,6 +485,7 @@ module.exports = async (req, res) => {
       .from("incidents")
       .select(selectFields)
       .not("source_domain", "ilike", "%google.com%")
+      .gte("published_at", ageCutoffIso)
       .order("published_at", { ascending: false })
       .limit(nonGooglePoolLimit);
 
@@ -490,6 +493,7 @@ module.exports = async (req, res) => {
       .from("incidents")
       .select(selectFields)
       .ilike("source_domain", "%google.com%")
+      .gte("published_at", ageCutoffIso)
       .order("published_at", { ascending: false })
       .limit(googlePoolLimit);
 
@@ -498,6 +502,7 @@ module.exports = async (req, res) => {
       .select(selectFields)
       .eq("source_type", "factcheck")
       .not("source_domain", "ilike", "%google.com%")
+      .gte("published_at", ageCutoffIso)
       .order("published_at", { ascending: false })
       .limit(Math.max(120, Math.floor(limit * 4)));
 
@@ -514,7 +519,12 @@ module.exports = async (req, res) => {
       { key: "googlenews", column: "source_domain", op: "ilike", value: "%google.com%" },
     ];
     const sourceFallbackReqs = sourceFallbackSpecs.map((spec) => {
-      let q = client.from("incidents").select(selectFields).order("published_at", { ascending: false }).limit(1);
+      let q = client
+        .from("incidents")
+        .select(selectFields)
+        .gte("published_at", ageCutoffIso)
+        .order("published_at", { ascending: false })
+        .limit(1);
       if (spec.op === "ilike") q = q.ilike(spec.column, spec.value);
       if (spec.op === "eq") q = q.eq(spec.column, spec.value);
       return q;

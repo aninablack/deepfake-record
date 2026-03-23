@@ -1044,21 +1044,17 @@ function categoryIllustrationImage(category) {
 
 function handleImageError(imgEl) {
   if (!imgEl || !imgEl.parentNode) return;
+  const title = imgEl.getAttribute('data-fallback-title') || '';
+  const summary = imgEl.getAttribute('data-fallback-summary') || '';
+  const category = imgEl.getAttribute('data-fallback-category') || '';
   if (imgEl.dataset.retried !== '1') {
     imgEl.dataset.retried = '1';
-    const title = imgEl.getAttribute('data-fallback-title') || '';
-    const summary = imgEl.getAttribute('data-fallback-summary') || '';
-    const category = imgEl.getAttribute('data-fallback-category') || '';
-    imgEl.src = categoryIllustrationImage(category);
+    imgEl.src = generatedFallbackImageFromContext(title, summary, category);
     imgEl.dataset.imageOrigin = 'illustrative';
     return;
   }
-  const title = imgEl.getAttribute('data-fallback-title') || '';
-  const fallback = document.createElement('div');
-  fallback.className = 'df-no-image-wrap';
-  fallback.innerHTML = `<div class="df-no-image-title">${title}</div>`;
-  imgEl.parentNode.insertBefore(fallback, imgEl.nextSibling);
-  imgEl.remove();
+  imgEl.src = categoryIllustrationImage(category);
+  imgEl.dataset.imageOrigin = 'illustrative';
 }
 
 function attachImageFallbacks() {

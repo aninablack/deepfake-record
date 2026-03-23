@@ -724,6 +724,10 @@ function overrideCategoryByKeywords(title, description, currentType) {
 
 async function normalize(client, article, index, dropCounters = null) {
   const title = (article.title || '').trim();
+  if (/^(disinfo update|weekly update|newsletter|roundup|digest)\b/i.test(title)) {
+    bumpDrop(dropCounters, 'dropped_generic_update_title');
+    return null;
+  }
   const lang = String(article.language || '').toLowerCase().trim();
   if (lang && !['en', 'english'].includes(lang)) {
     bumpDrop(dropCounters, 'dropped_non_english');
@@ -826,6 +830,13 @@ async function normalize(client, article, index, dropCounters = null) {
   }
   const sourceDomain = article.domain || 'unknown';
   let articleUrl = canonicalizeUrl(article.url || '');
+  const publishedAt = parseSeenDate(article.seendate);
+  const articleAgeMs = Date.now() - new Date(publishedAt).getTime();
+  const maxAgeMs = Math.max(1, Number(config.maxArticleAgeDays || 14)) * 24 * 60 * 60 * 1000;
+  if (Number.isFinite(articleAgeMs) && articleAgeMs > maxAgeMs) {
+    bumpDrop(dropCounters, 'dropped_too_old');
+    return null;
+  }
   const claimUrl = article.claim_url
     ? canonicalizeUrl(article.claim_url)
     : (isDirectPlatformUrl(articleUrl) ? articleUrl : null);
@@ -840,7 +851,6 @@ async function normalize(client, article, index, dropCounters = null) {
   }
   const image = await resolveImage(article, { client });
   const imageUrl = image.url;
-  const publishedAt = parseSeenDate(article.seendate);
   const reportedPlatforms = detectReportedPlatforms(`${title} ${description} ${articleUrl || ''}`);
   const reportedOn = reportedPlatforms.length ? reportedPlatforms.join(',') : null;
   const modalities = deriveModalities(`${title} ${description}`);
