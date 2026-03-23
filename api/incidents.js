@@ -276,7 +276,19 @@ function dedupeAndFilter(rows) {
     finalByTitle.set(key, prev ? pickPreferred(prev, item) : item);
   }
 
-  return Array.from(finalByTitle.values())
+  // Secondary dedupe: collapse near-duplicates with different headlines but same story body.
+  const finalByFingerprint = new Map();
+  for (const item of finalByTitle.values()) {
+    const fp = storyFingerprint(item);
+    if (!fp || fp.length < 12) {
+      finalByFingerprint.set(`id:${item.id}`, item);
+      continue;
+    }
+    const prev = finalByFingerprint.get(fp);
+    finalByFingerprint.set(fp, prev ? pickPreferred(prev, item) : item);
+  }
+
+  return Array.from(finalByFingerprint.values())
     .sort((a, b) => {
       const aHasDoc = String(a.image_type || "").toLowerCase() === "documented" && !!String(a.image_url || "").trim();
       const bHasDoc = String(b.image_type || "").toLowerCase() === "documented" && !!String(b.image_url || "").trim();
@@ -315,7 +327,14 @@ function rebalanceSources(rows, limit) {
     if (domain.includes("leadstories.com")) return "Lead Stories";
     if (domain.includes("bellingcat.com")) return "Bellingcat";
     if (domain.includes("dfrlab.org") || domain.includes("medium.com")) return "DFRLab";
-    if (domain.includes("euvsdisinfo.eu")) return "EUvsDisinfo";
+    if (domain.includes("disinfo.eu")) return "DisinfoEU";
+    if (domain.includes("theguardian.com")) return "Guardian";
+    if (domain.includes("propublica.org")) return "ProPublica";
+    if (domain.includes("theintercept.com")) return "The Intercept";
+    if (domain.includes("cyberscoop.com")) return "CyberScoop";
+    if (domain.includes("404media.co")) return "404 Media";
+    if (domain.includes("bbc.co.uk") || domain.includes("bbc.com")) return "BBC";
+    if (domain.includes("restofworld.org")) return "Rest of World";
     return "";
   };
 
@@ -363,16 +382,18 @@ function rebalanceSources(rows, limit) {
   // Pass -1: ensure source diversity for key listed feeds when records are available.
   const requiredBuckets = [
     "GDELT Project",
-    "Google News",
-    "Snopes",
+    "BBC",
     "PolitiFact",
-    "AFP Fact Check",
     "Full Fact",
     "Lead Stories",
     "Bellingcat",
     "DFRLab",
-    "EUvsDisinfo",
-    "Social",
+    "Guardian",
+    "ProPublica",
+    "The Intercept",
+    "CyberScoop",
+    "404 Media",
+    "Rest of World",
   ];
   for (const bucket of requiredBuckets) {
     if (selected.length >= limit) break;
