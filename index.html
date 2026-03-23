@@ -1053,8 +1053,11 @@ function handleImageError(imgEl) {
     imgEl.dataset.imageOrigin = 'illustrative';
     return;
   }
-  imgEl.src = categoryIllustrationImage(category);
-  imgEl.dataset.imageOrigin = 'illustrative';
+  const fallback = document.createElement('div');
+  fallback.className = 'df-no-image-wrap';
+  fallback.innerHTML = `<div class="df-no-image-title">${title}</div>`;
+  imgEl.parentNode.insertBefore(fallback, imgEl.nextSibling);
+  imgEl.remove();
 }
 
 function attachImageFallbacks() {
