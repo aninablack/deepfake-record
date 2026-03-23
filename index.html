@@ -966,7 +966,7 @@ function imageHtml(url, title, summary = '', category = '') {
     !/^(null|undefined|none|n\/a)$/i.test(normalizedUrl) &&
     !isLikelyLogoImage(normalizedUrl);
   if (!hasSourceImage) {
-    const fallbackSrc = categoryIllustrationImage(category);
+    const fallbackSrc = generatedFallbackImageFromContext(title, summary, category);
     return `<img src="${safeText(fallbackSrc)}" alt="Incident illustration" data-fallback-title="${safeTitle}" data-fallback-summary="${safeSummary}" data-fallback-category="${safeCategory}" data-image-origin="illustrative" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"/>`;
   }
   const source = proxiedImageUrl(normalizedUrl);
@@ -1123,26 +1123,9 @@ function setMode(nextMode, btn) {
 }
 
 function getActiveCards() {
-  const raw = mode === 'verified' && verifiedCards.length === 0
+  return mode === 'verified' && verifiedCards.length === 0
     ? liveCards
     : (mode === 'verified' ? verifiedCards : liveCards);
-  const deduped = dedupeCards(raw);
-  const minimumVisible = Math.min(mode === 'live' ? 120 : 60, raw.length);
-  if (deduped.length >= minimumVisible) return deduped;
-
-  // Safety floor: if dedupe gets too aggressive, top up from raw cards.
-  const out = [...deduped];
-  const seen = new Set(
-    out.map((c) => String(c.id || '') || `${canonicalUrl(c.articleUrl || '')}::${String(c.title || '')}`)
-  );
-  for (const card of raw) {
-    if (out.length >= minimumVisible) break;
-    const key = String(card.id || '') || `${canonicalUrl(card.articleUrl || '')}::${String(card.title || '')}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(card);
-  }
-  return out;
 }
 
 function canonicalUrl(url) {
@@ -1410,17 +1393,11 @@ function updateHeroCounters() {
   const linkableCards = activeCards.filter((c) => !!String(c.articleUrl || c.claimUrl || '').trim());
   const categoryFiltered = filter === 'all' ? linkableCards : linkableCards.filter((c) => c.type === filter);
   const visibleCards = categoryFiltered.filter(matchesSearch);
-  const usingVerified = mode === 'verified' && verifiedTotal > 0;
-  const fallbackLiveTotal = liveCards.length || visibleCards.length || 0;
-  const fallbackVerifiedTotal = verifiedCards.length || visibleCards.length || 0;
-  const totalValue = usingVerified
-    ? (verifiedTotal || fallbackVerifiedTotal)
-    : (liveTotal || fallbackLiveTotal);
-  const value = totalValue;
+  const value = visibleCards.length;
   const mobile = window.matchMedia && window.matchMedia('(max-width: 700px)').matches;
   const label = mobile
-    ? (usingVerified ? 'Verified incidents logged' : 'Incidents logged')
-    : `${usingVerified ? 'Verified incidents logged' : 'Incidents logged'} · ${visibleCards.length.toLocaleString()} shown`;
+    ? 'Incidents shown'
+    : `Incidents shown · ${visibleCards.length.toLocaleString()}`;
   const counterEl = document.getElementById('counter');
   const labelEl = document.getElementById('counterLabel');
   if (counterEl) counterEl.textContent = (value || 0).toLocaleString();
