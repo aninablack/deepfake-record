@@ -121,7 +121,7 @@ function passesStrictRelevance(article, title, description) {
   const full = `${title} ${description} ${article.url || ''}`;
   const titleSignal = hasStrongDeepfakeSignal(title);
   const fullSignal = hasStrongDeepfakeSignal(full);
-  const relevance = deepfakeRelevanceScore(title, description);
+  const relevance = deepfakeRelevanceScore(title, description, article.domain || article.source_domain || article.url || '');
   // Must have at least one deepfake signal somewhere.
   if (!titleSignal && !fullSignal && relevance < 1) return false;
 
@@ -805,7 +805,7 @@ async function normalize(client, article, index, dropCounters = null) {
   ];
   const minScore = trustedRelevanceDomains.some((d) => source.includes(d)) ? 1 : 2;
   const isTrustedSource = trustedDomains.some((d) => String(article.domain || '').toLowerCase().includes(d));
-  const relevanceScore = deepfakeRelevanceScore(title, description);
+  const relevanceScore = deepfakeRelevanceScore(title, description, article.domain || article.source_domain || article.url || '');
   const trustedSignalPass =
     isTrustedSource && (hasStrongDeepfakeSignal(fullText) || relevanceScore >= minScore || isDeepfakeRelevant(fullText));
   const factcheckCandidate =
