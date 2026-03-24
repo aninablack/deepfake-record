@@ -596,7 +596,6 @@
     .df-resource-links a { font-size: 14px; }
     .df-legend-text { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .df-card-type { font-size: 12px; letter-spacing: 0.14em; }
-    .df-card-title { font-size: 14px; line-height: 1.32; overflow-wrap: anywhere; }
     .df-card-line, .df-card-platform { font-size: 12px; line-height: 1.3; }
     .df-card-link { font-size: 12px; }
     .df-no-image-wrap { overflow: hidden; }
@@ -712,17 +711,6 @@
     font-weight: 500;
   }
 
-  .df-card-title {
-    font-family: 'Playfair Display', serif;
-    font-size: 18px;
-    line-height: 1.3;
-    color: #111;
-    font-weight: 400;
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
 
   .df-card-platform {
     font-size: 14px;
@@ -955,11 +943,6 @@
       margin-bottom: 1px;
       font-size: 12px !important;
     }
-    .df-card-title {
-      font-size: 16px !important;
-      line-height: 1 !important;
-      margin-top: 0;
-    }
     .df-card-platform,
     .df-card-line,
     .df-card-link {
@@ -970,22 +953,12 @@
     .df-card-line.meta-extra {
       display: none !important;
     }
-    .df-card-title {
-      font-size: 16px !important;
-      font-weight: 500 !important;
-      line-height: 1 !important;
-    }
   }
 
   /* Mobile fallback for devices reporting wider visual viewport (iOS Safari quirks) */
   @media (max-width: 900px), (hover: none) and (pointer: coarse) {
     .df-card .df-card-meta .df-card-line {
       display: none !important;
-    }
-    .df-card .df-card-meta .df-card-title {
-      font-size: 16px !important;
-      font-weight: 500 !important;
-      line-height: 1.15 !important;
     }
     .df-curate-btn {
       width: 100% !important;
@@ -995,6 +968,12 @@
       display: inline-flex !important;
       justify-content: center !important;
     }
+  }
+
+  .df-card-title {
+    font-size: 16px;
+    line-height: 1.4;
+    font-weight: 500;
   }
 </style>
  </head>
@@ -1495,7 +1474,7 @@ function renderGallery() {
       </div>
       <div class="df-card-meta">
         <div class="df-card-type">${safeText(c.label)}</div>
-        <div class="df-card-title" style="font-size:16px;line-height:1.4;font-weight:500;">${safeText(c.title)}</div>
+        <div class="df-card-title">${safeText(c.title)}</div>
         <div class="df-card-platform">${safeText(c.platform)}</div>
       </div>
     </div>`).join('');
