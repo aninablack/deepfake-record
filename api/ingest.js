@@ -796,6 +796,12 @@ async function normalize(client, article, index, dropCounters = null) {
     'france24.com',
     'aljazeera.com',
     'dw.com',
+    'npr.org',
+    'axios.com',
+    'wired.com',
+    'nbcnews.com',
+    'abcnews.go.com',
+    'thehill.com',
   ];
   const minScore = trustedRelevanceDomains.some((d) => source.includes(d)) ? 1 : 2;
   const isTrustedSource = trustedDomains.some((d) => String(article.domain || '').toLowerCase().includes(d));
