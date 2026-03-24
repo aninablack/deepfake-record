@@ -722,7 +722,7 @@ function overrideCategoryByKeywords(title, description, currentType) {
   return currentType;
 }
 
-async function normalize(client, article, index, dropCounters = null) {
+async function normalize(client, article, index, dropCounters = null, debugStats = null) {
   const title = (article.title || '').trim();
   if (/^(disinfo update|weekly update|newsletter|roundup|digest)\b/i.test(title)) {
     bumpDrop(dropCounters, 'dropped_generic_update_title');
@@ -785,6 +785,15 @@ async function normalize(client, article, index, dropCounters = null) {
   }
   const fullText = `${title} ${description} ${article.url || ''}`;
   const source = String(article.domain || '').toLowerCase();
+  const trustedMatchText = [
+    article.url || '',
+    article.domain || '',
+    article.source_domain || '',
+    article.socialimage || '',
+    article.social_image || '',
+  ]
+    .join(' ')
+    .toLowerCase();
   const trustedAiRelaxDomains = [
     'bbc.co.uk',
     'bbc.com',
@@ -803,8 +812,9 @@ async function normalize(client, article, index, dropCounters = null) {
   const trustedAiAnchor = /\b(ai|artificial intelligence)\b/i;
   const trustedAiRisk =
     /\b(misinformation|manipulated|fabricated|impersonation|synthetic|clone|hoax|disinformation|fraud|scam|fake video|deepfake|voice clone|generated)\b/i;
+  const trustedAiRelaxDomain = trustedAiRelaxDomains.find((d) => trustedMatchText.includes(d));
   const trustedAiRelaxPass =
-    trustedAiRelaxDomains.some((d) => source.includes(d)) &&
+    Boolean(trustedAiRelaxDomain) &&
     trustedAiAnchor.test(`${title} ${description}`) &&
     trustedAiRisk.test(`${title} ${description}`);
   const trustedRelevanceDomains = [
@@ -825,7 +835,7 @@ async function normalize(client, article, index, dropCounters = null) {
     'abcnews.go.com',
     'thehill.com',
   ];
-  const minScore = trustedRelevanceDomains.some((d) => source.includes(d)) ? 1 : 2;
+  const minScore = trustedRelevanceDomains.some((d) => trustedMatchText.includes(d)) ? 1 : 2;
   const isTrustedSource = trustedDomains.some((d) => String(article.domain || '').toLowerCase().includes(d));
   const relevanceScore = deepfakeRelevanceScore(title, description, article.domain || article.source_domain || article.url || '');
   const trustedSignalPass =
@@ -835,6 +845,18 @@ async function normalize(client, article, index, dropCounters = null) {
   if (!trustedSignalPass && !trustedAiRelaxPass && !isFactcheck && !isDeepfakeRelevant(fullText)) {
     bumpDrop(dropCounters, 'dropped_not_deepfake_relevant');
     return null;
+  }
+  if (trustedAiRelaxPass && !trustedSignalPass && debugStats) {
+    debugStats.trustedDomainKept = Number(debugStats.trustedDomainKept || 0) + 1;
+    if (Array.isArray(debugStats.trustedDomainMatches) && debugStats.trustedDomainMatches.length < 3) {
+      debugStats.trustedDomainMatches.push({
+        matched_domain: trustedAiRelaxDomain,
+        source_domain: article.domain || article.source_domain || null,
+        url: article.url || null,
+        title: title || null,
+      });
+      console.log('[trusted-domain-match]', trustedAiRelaxDomain, article.domain || article.source_domain || '', article.url || '');
+    }
   }
   if (!trustedSignalPass && isFactcheck && !factcheckCandidate) {
     bumpDrop(dropCounters, 'dropped_factcheck_candidate');
@@ -1140,7 +1162,10 @@ module.exports = async (_req, res) => {
     }
     const mergedRaw = [...raw, ...rssRaw, ...newsDataRaw, ...redditRaw];
     const dropCounters = {};
-    const normalized = await Promise.all(mergedRaw.map((item, idx) => normalize(client, item, idx, dropCounters)));
+    const debugStats = { trustedDomainKept: 0, trustedDomainMatches: [] };
+    const normalized = await Promise.all(
+      mergedRaw.map((item, idx) => normalize(client, item, idx, dropCounters, debugStats))
+    );
     const normalizedKept = normalized.filter(Boolean);
     const deduped = dedupeIncidents(normalizedKept);
     const incidents = balanceIncidentsBySourceType(deduped);
@@ -1190,6 +1215,8 @@ module.exports = async (_req, res) => {
       context_fetched: rawContext.length,
       context_upserted: contextResult.inserted,
       archived_events_logged: eventsResult.inserted || 0,
+      trusted_domain_kept: debugStats.trustedDomainKept || 0,
+      trusted_domain_matches: debugStats.trustedDomainMatches || [],
       dropped: dropCounters,
       warning: warnings.length ? warnings.join(' ') : null,
       at: new Date().toISOString(),
