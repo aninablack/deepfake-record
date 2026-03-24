@@ -521,7 +521,13 @@
   }
 
   @media (max-width: 768px) {
-    .df-gallery { columns: 1; padding: 14px 12px; }
+    .df-gallery {
+      columns: unset;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      padding: 14px 12px;
+    }
     .df-root { overflow-x: hidden; }
     .df-masthead {
       padding: 12px 14px;
