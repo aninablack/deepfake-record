@@ -187,7 +187,6 @@ module.exports = async (req, res) => {
       harm_level: deriveHarmLevel(confidence, `${title} ${summary} ${body}`),
       source_priority: deriveSourcePriority(sourceDomain),
       incident_key: buildIncidentKey(title, classified.type, nowIso),
-      ingest_source: 'community',
     };
 
     const inserted = await client.from('incidents').upsert([row], { onConflict: 'source_id' });
