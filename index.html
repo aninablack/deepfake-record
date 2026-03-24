@@ -301,6 +301,55 @@
     border-color: #111;
   }
 
+  .df-curate {
+    border-bottom: 1px solid #111;
+    padding: 12px 32px 14px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .df-curate-input {
+    width: 100%;
+    border: 0.5px solid #bbb;
+    background: #fff;
+    color: #111;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    padding: 10px 12px;
+    outline: none;
+  }
+
+  .df-curate-input:focus { border-color: #111; }
+
+  .df-curate-btn {
+    border: 0.5px solid #111;
+    background: #111;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 10px 14px;
+    cursor: pointer;
+  }
+
+  .df-curate-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+  }
+
+  .df-curate-status {
+    grid-column: 1 / -1;
+    font-size: 13px;
+    color: #555;
+    min-height: 18px;
+  }
+
+  .df-curate-status.ok { color: #1f5c35; }
+  .df-curate-status.err { color: #7a2020; }
+
 
   .df-gallery {
     padding: 28px 32px;
@@ -812,6 +861,19 @@
     </div>
   </div>
 
+  <form class="df-curate" id="curateForm">
+    <input
+      id="curateUrl"
+      class="df-curate-input"
+      type="url"
+      placeholder="Submit reporting URL for curation..."
+      aria-label="Submit article URL for curation"
+      required
+    />
+    <button id="curateSubmit" class="df-curate-btn" type="submit">Submit Source</button>
+    <div id="curateStatus" class="df-curate-status"></div>
+  </form>
+
   <div class="df-resources">
     <div class="df-resource-panel">
       <button class="df-resource-head" aria-expanded="false" onclick="toggleResourcePanel('sourcesLinks', this)">
@@ -1092,6 +1154,51 @@ function setSearchQuery(value) {
   searchQuery = String(value || '').trim().toLowerCase();
   renderGallery();
   updateHeroCounters();
+}
+
+async function submitCuratedUrl(event) {
+  event.preventDefault();
+  const input = document.getElementById('curateUrl');
+  const btn = document.getElementById('curateSubmit');
+  const status = document.getElementById('curateStatus');
+  const url = String(input?.value || '').trim();
+  if (!url) return;
+
+  status.className = 'df-curate-status';
+  status.textContent = 'Submitting...';
+  btn.disabled = true;
+  try {
+    const res = await fetch('/api/curate', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ url }),
+    });
+    const json = await res.json().catch(() => ({ ok: false, reason: 'invalid_response' }));
+    if (json.ok) {
+      status.className = 'df-curate-status ok';
+      if (json.reason === 'duplicate') {
+        status.textContent = `Already tracked: ${json.title || 'existing incident'}.`;
+      } else {
+        status.textContent = `Added: ${json.title || 'curated incident'}.`;
+      }
+      if (input) input.value = '';
+      await loadLiveData();
+    } else {
+      status.className = 'df-curate-status err';
+      const reasonMap = {
+        invalid_url: 'Please enter a valid article URL.',
+        not_relevant: 'Rejected: not deepfake/synthetic-media relevant.',
+        rate_limited: 'Too many submissions from this IP. Try again in about an hour.',
+        missing_title: 'Could not extract article title from the URL.',
+      };
+      status.textContent = reasonMap[json.reason] || `Rejected: ${json.reason || 'unable to curate this URL'}.`;
+    }
+  } catch {
+    status.className = 'df-curate-status err';
+    status.textContent = 'Submission failed. Please try again.';
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function matchesSearch(card) {
@@ -1406,6 +1513,7 @@ function updateHeroCounters() {
 
 renderGallery();
 renderTicker();
+document.getElementById('curateForm')?.addEventListener('submit', submitCuratedUrl);
 setInterval(loadLiveData, 60000);
 loadLiveData();
 </script>

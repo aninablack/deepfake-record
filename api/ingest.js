@@ -145,6 +145,39 @@ function stripHtml(text) {
   return decodeXmlEntities(text).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+async function fetchArticleBodySnippet(url, timeoutMs = 3000, fallbackText = '') {
+  const input = canonicalizeUrl(url);
+  if (!input || !/^https?:\/\//i.test(input)) return String(fallbackText || '').slice(0, 1000);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(input, {
+      headers: rssFetchHeaders(),
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+    if (!res.ok) return String(fallbackText || '').slice(0, 1000);
+    const html = await res.text();
+    const articleChunk =
+      html.match(/<article[\s\S]*?<\/article>/i)?.[0] ||
+      html.match(/<main[\s\S]*?<\/main>/i)?.[0] ||
+      html;
+    const text = stripHtml(
+      String(articleChunk || '')
+        .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+        .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    )
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!text) return String(fallbackText || '').slice(0, 1000);
+    return text.slice(0, 1000);
+  } catch {
+    return String(fallbackText || '').slice(0, 1000);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function canonicalizeUrl(url) {
   if (!url) return '';
   try {
@@ -512,6 +545,7 @@ async function fetchRssArticles() {
           description: item.description || '',
           source_type: sourceType,
           claim_url: claimUrl,
+          ingest_source: 'rss',
         });
       }
       status = 'ok';
@@ -783,7 +817,7 @@ async function normalize(client, article, index, dropCounters = null) {
     bumpDrop(dropCounters, 'dropped_excluded_title');
     return null;
   }
-  const fullText = `${title} ${description} ${article.url || ''}`;
+  const sourceHint = `${article.domain || ''} ${article.source_domain || ''} ${article.url || ''} ${article.socialimage || ''} ${article.social_image || ''}`;
   const source = String(article.domain || '').toLowerCase();
   const trustedMatchText = [
     article.url || '',
@@ -816,8 +850,15 @@ async function normalize(client, article, index, dropCounters = null) {
     /\b(deepfake|synthetic media|fake video|fake image|voice clone|ai-generated|manipulated video|disinformation|misinformation|fabricated|non-consensual|impersonation|forged)\b/i;
   const trustedManipulationOnly =
     /\b(manipulated video|fabricated video|fake footage|forged video|edited video|altered video|doctored image|false video)\b/i;
-  const trustedText = `${title} ${description} ${article.url || ''}`;
+  let relevanceSummary = description;
+  const trustedTextBase = `${title} ${description} ${article.url || ''}`;
   const trustedAiRelaxDomain = trustedAiRelaxDomains.find((d) => trustedMatchText.includes(d));
+  const baseRelevance = deepfakeRelevanceScore(title, description, sourceHint);
+  if (article.ingest_source === 'rss' && trustedAiRelaxDomain && baseRelevance < 1) {
+    const snippet = await fetchArticleBodySnippet(article.url, 3000, `${title} ${description}`);
+    if (snippet) relevanceSummary = `${description} ${snippet}`.trim();
+  }
+  const trustedText = `${title} ${relevanceSummary} ${article.url || ''}`;
   const hasTrustedAiAnchor = trustedAiAnchor.test(trustedText);
   const hasTrustedAiRisk = trustedAiRisk.test(trustedText);
   const hasTrustedManipulationOnly = trustedManipulationOnly.test(trustedText);
@@ -848,7 +889,8 @@ async function normalize(client, article, index, dropCounters = null) {
   ];
   const minScore = trustedRelevanceDomains.some((d) => trustedMatchText.includes(d)) ? 1 : 2;
   const isTrustedSource = trustedDomains.some((d) => String(article.domain || '').toLowerCase().includes(d));
-  const relevanceScore = deepfakeRelevanceScore(title, description, article.domain || article.source_domain || article.url || '');
+  const fullText = `${title} ${relevanceSummary} ${article.url || ''}`;
+  const relevanceScore = deepfakeRelevanceScore(title, relevanceSummary, sourceHint);
   const trustedSignalPass =
     isTrustedSource &&
     (hasStrongDeepfakeSignal(fullText) ||
@@ -864,32 +906,32 @@ async function normalize(client, article, index, dropCounters = null) {
     bumpDrop(dropCounters, 'dropped_factcheck_candidate');
     return null;
   }
-  if (!trustedSignalPass && !trustedAiRelaxPass && !passesStrictRelevance(article, title, description)) {
+  if (!trustedSignalPass && !trustedAiRelaxPass && !passesStrictRelevance(article, title, relevanceSummary)) {
     bumpDrop(dropCounters, 'dropped_strict_relevance');
     return null;
   }
-  const incidentCandidate = isIncidentCandidate(article, title, description);
+  const incidentCandidate = isIncidentCandidate(article, title, relevanceSummary);
   // Fact-check sources are already curated; avoid over-pruning due to softer wording.
   if (!trustedSignalPass && isFactcheck && relevanceScore < 1) {
     bumpDrop(dropCounters, 'dropped_factcheck_relevance_floor');
     return null;
   }
-  if (!trustedSignalPass && !trustedAiRelaxPass && !isFactcheck && isContextOnlyArticle(`${title} ${description} ${article.url || ''}`)) {
+  if (!trustedSignalPass && !trustedAiRelaxPass && !isFactcheck && isContextOnlyArticle(`${title} ${relevanceSummary} ${article.url || ''}`)) {
     bumpDrop(dropCounters, 'dropped_context_only');
     return null;
   }
-  const classified = classifyIncident(`${title} ${description} ${article.domain || ''} ${article.language || ''}`);
+  const classified = classifyIncident(`${title} ${relevanceSummary} ${article.domain || ''} ${article.language || ''}`);
   // Emergency runtime override for production incidents_category_check mismatches.
   if (process.env.FORCE_CATEGORY_FALLBACK === '1' && classified.type === 'entertainment') {
     classified.type = 'entertainment';
     classified.label = 'Entertainment';
   }
-  const politicsHint = /(propaganda|government|minister|election|state media|campaign|parliament|senate|president)/i.test(`${title} ${description}`);
+  const politicsHint = /(propaganda|government|minister|election|state media|campaign|parliament|senate|president)/i.test(`${title} ${relevanceSummary}`);
   if (politicsHint && classified.type === 'entertainment') {
     classified.type = 'political';
     classified.label = 'Political';
   }
-  const overriddenType = overrideCategoryByKeywords(title, description, classified.type);
+  const overriddenType = overrideCategoryByKeywords(title, relevanceSummary, classified.type);
   if (overriddenType !== classified.type) {
     classified.type = overriddenType;
     classified.label = overriddenType === 'fraud' ? 'Fraud' : (overriddenType === 'political' ? 'Political' : classified.label);
@@ -917,10 +959,10 @@ async function normalize(client, article, index, dropCounters = null) {
   }
   const image = await resolveImage(article, { client });
   const imageUrl = image.url;
-  const reportedPlatforms = detectReportedPlatforms(`${title} ${description} ${articleUrl || ''}`);
+  const reportedPlatforms = detectReportedPlatforms(`${title} ${relevanceSummary} ${articleUrl || ''}`);
   const reportedOn = reportedPlatforms.length ? reportedPlatforms.join(',') : null;
-  const modalities = deriveModalities(`${title} ${description}`);
-  const tags = deriveTags(`${title} ${description}`);
+  const modalities = deriveModalities(`${title} ${relevanceSummary}`);
+  const tags = deriveTags(`${title} ${relevanceSummary}`);
 
   // Hard guard: never persist incidents without a resolvable article/claim URL.
   if (!String(articleUrl || '').trim() && !String(claimUrl || '').trim()) {
@@ -941,7 +983,7 @@ async function normalize(client, article, index, dropCounters = null) {
   return {
     source_id: articleUrl || `${sourceDomain}:${title}`,
     title: title || 'Untitled incident',
-    summary: description,
+    summary: relevanceSummary,
     category: classified.type,
     category_label: classified.label,
     confidence: Number(adjustedConfidence.toFixed(2)),
