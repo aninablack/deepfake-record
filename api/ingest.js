@@ -145,9 +145,9 @@ function stripHtml(text) {
   return decodeXmlEntities(text).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-async function fetchArticleBodySnippet(url, timeoutMs = 3000, fallbackText = '') {
+async function fetchArticleBodySnippet(url, timeoutMs = 5000, fallbackText = '') {
   const input = canonicalizeUrl(url);
-  if (!input || !/^https?:\/\//i.test(input)) return String(fallbackText || '').slice(0, 1000);
+  if (!input || !/^https?:\/\//i.test(input)) return String(fallbackText || '').slice(0, 2000);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -156,7 +156,7 @@ async function fetchArticleBodySnippet(url, timeoutMs = 3000, fallbackText = '')
       redirect: 'follow',
       signal: controller.signal,
     });
-    if (!res.ok) return String(fallbackText || '').slice(0, 1000);
+    if (!res.ok) return String(fallbackText || '').slice(0, 2000);
     const html = await res.text();
     const articleChunk =
       html.match(/<article[\s\S]*?<\/article>/i)?.[0] ||
@@ -169,10 +169,10 @@ async function fetchArticleBodySnippet(url, timeoutMs = 3000, fallbackText = '')
     )
       .replace(/\s+/g, ' ')
       .trim();
-    if (!text) return String(fallbackText || '').slice(0, 1000);
-    return text.slice(0, 1000);
+    if (!text) return String(fallbackText || '').slice(0, 2000);
+    return text.slice(0, 2000);
   } catch {
-    return String(fallbackText || '').slice(0, 1000);
+    return String(fallbackText || '').slice(0, 2000);
   } finally {
     clearTimeout(timer);
   }
@@ -557,16 +557,43 @@ async function fetchRssArticles() {
   return { records, feed_count: feeds.length, feed_stats: feedStats };
 }
 
-async function fetchNewsDataArticles() {
+function mapNewsDataRows(rows) {
+  return rows.map((item) => {
+    const link = canonicalizeUrl(item?.link || '');
+    const domain = String(item?.source_id || '').trim().toLowerCase() || (() => {
+      try {
+        return new URL(link).hostname.replace(/^www\./, '');
+      } catch {
+        return 'unknown';
+      }
+    })();
+    const description = String(item?.description || item?.content || '').trim();
+    return {
+      title: String(item?.title || '').trim(),
+      url: link,
+      seendate: item?.pubDate || item?.pubDateTZ || null,
+      domain,
+      sourcecountry: null,
+      language: String(item?.language || 'en').trim().toLowerCase(),
+      socialimage: canonicalizeUrl(item?.image_url || '') || null,
+      description,
+      source_type: 'news',
+      claim_url: null,
+      ingest_source: 'newsdata',
+    };
+  });
+}
+
+async function fetchNewsDataArticles(queryOverride = null, sizeOverride = null) {
   const apiKey = String(process.env.NEWSDATA_API_KEY || '').trim();
   if (!apiKey) return { records: [], status: 'missing_key', http: null };
 
   const rawQuery =
-    String(process.env.NEWSDATA_QUERY || '').trim() ||
+    String(queryOverride || process.env.NEWSDATA_QUERY || '').trim() ||
     'deepfake OR "voice clone" OR "synthetic media" OR "AI impersonation"';
   const query = rawQuery.replace(/^\((.*)\)$/s, '$1').trim();
   // Free tier supports up to 10 articles per request; enforce hard cap to avoid 422.
-  const size = Math.max(1, Math.min(Number(process.env.NEWSDATA_MAX_RECORDS || 10), 10));
+  const size = Math.max(1, Math.min(Number(sizeOverride || process.env.NEWSDATA_MAX_RECORDS || 10), 10));
   const endpoint = String(process.env.NEWSDATA_ENDPOINT || 'latest').trim().toLowerCase();
   const endpointPath = endpoint === 'news' ? 'news' : 'latest';
   const buildUrl = ({ q, includeLanguage = true }) => {
@@ -601,29 +628,7 @@ async function fetchNewsDataArticles() {
     }
     const json = await res.json();
     const rows = Array.isArray(json?.results) ? json.results : [];
-    const records = rows.map((item) => {
-      const link = canonicalizeUrl(item?.link || '');
-      const domain = String(item?.source_id || '').trim().toLowerCase() || (() => {
-        try {
-          return new URL(link).hostname.replace(/^www\./, '');
-        } catch {
-          return 'unknown';
-        }
-      })();
-      const description = String(item?.description || item?.content || '').trim();
-      return {
-        title: String(item?.title || '').trim(),
-        url: link,
-        seendate: item?.pubDate || item?.pubDateTZ || null,
-        domain,
-        sourcecountry: null,
-        language: String(item?.language || 'en').trim().toLowerCase(),
-        socialimage: canonicalizeUrl(item?.image_url || '') || null,
-        description,
-        source_type: 'news',
-        claim_url: null,
-      };
-    });
+    const records = mapNewsDataRows(rows);
     return { records, status: rows.length ? 'ok' : 'ok_zero_results', http: res.status, error: null };
   } catch {
     return { records: [], status: 'fetch_failed', http: null, error: null };
@@ -855,7 +860,7 @@ async function normalize(client, article, index, dropCounters = null) {
   const trustedAiRelaxDomain = trustedAiRelaxDomains.find((d) => trustedMatchText.includes(d));
   const baseRelevance = deepfakeRelevanceScore(title, description, sourceHint);
   if (article.ingest_source === 'rss' && trustedAiRelaxDomain && baseRelevance < 1) {
-    const snippet = await fetchArticleBodySnippet(article.url, 3000, `${title} ${description}`);
+    const snippet = await fetchArticleBodySnippet(article.url, 5000, `${title} ${description}`);
     if (snippet) relevanceSummary = `${description} ${snippet}`.trim();
   }
   const trustedText = `${title} ${relevanceSummary} ${article.url || ''}`;
@@ -1192,6 +1197,29 @@ module.exports = async (_req, res) => {
         newsDataStatus = String(newsDataResult?.status || 'unknown');
         newsDataHttp = newsDataResult?.http ?? null;
         newsDataError = newsDataResult?.error || null;
+        const targetedQueries = [
+          'deepfake disinformation',
+          'AI video manipulation',
+          'synthetic media incident',
+        ];
+        for (const q of targetedQueries) {
+          try {
+            const targeted = await fetchNewsDataArticles(q, 5);
+            if (Array.isArray(targeted?.records) && targeted.records.length) {
+              newsDataRaw.push(...targeted.records);
+            }
+          } catch {
+            // best-effort targeted search
+          }
+        }
+        const seenNewsData = new Set();
+        newsDataRaw = newsDataRaw.filter((item) => {
+          const key = canonicalizeUrl(item.url || '') || `${item.domain || ''}|${(item.title || '').toLowerCase()}`;
+          if (!key) return false;
+          if (seenNewsData.has(key)) return false;
+          seenNewsData.add(key);
+          return true;
+        });
       } else if (String(process.env.NEWSDATA_API_KEY || '').trim()) {
         newsDataRaw = [];
         newsDataStatus = 'daily_cap_reached';

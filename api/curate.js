@@ -99,30 +99,38 @@ async function fetchWithTimeout(url, timeoutMs = 8000) {
 }
 
 module.exports = async (req, res) => {
+  const logAttempt = (reason, extra = {}) => {
+    console.log('[curate-attempt]', { reason, ...extra });
+  };
+  const reject = (status, reason, extra = {}) => {
+    logAttempt(reason, extra);
+    return res.status(status).json({ ok: false, reason, ...extra });
+  };
+
   if (req.method !== 'POST') {
-    return res.status(405).json({ ok: false, reason: 'method_not_allowed' });
+    return reject(405, 'method_not_allowed');
   }
   const ip = getIp(req);
   if (!checkRateLimit(ip)) {
-    return res.status(429).json({ ok: false, reason: 'rate_limited' });
+    return reject(429, 'rate_limited', { ip });
   }
 
   try {
     const payload = typeof req.body === 'object' && req.body ? req.body : JSON.parse(req.body || '{}');
     const inputUrl = canonicalizeUrl(payload.url || '');
     if (!/^https?:\/\//i.test(inputUrl)) {
-      return res.status(400).json({ ok: false, reason: 'invalid_url' });
+      return reject(400, 'invalid_url', { ip, inputUrl });
     }
 
     const page = await fetchWithTimeout(inputUrl, 8000);
     if (!page.ok) {
-      return res.status(400).json({ ok: false, reason: `fetch_failed_${page.status}` });
+      return reject(400, `fetch_failed_${page.status}`, { ip, inputUrl });
     }
     const finalUrl = canonicalizeUrl(page.url || inputUrl);
     const html = await page.text();
     const { title, summary, image, body } = extractArticleParts(html);
     if (!title) {
-      return res.status(400).json({ ok: false, reason: 'missing_title' });
+      return reject(400, 'missing_title', { ip, finalUrl });
     }
 
     const sourceDomain = (() => {
@@ -137,17 +145,19 @@ module.exports = async (req, res) => {
     const relevanceScore = deepfakeRelevanceScore(title, `${summary} ${body}`, sourceHint);
     const relevant = isDeepfakeRelevant(relevanceText, sourceHint) || relevanceScore >= 1;
     if (!relevant) {
-      return res.status(200).json({ ok: false, reason: 'not_relevant' });
+      return reject(200, 'not_relevant', { ip, finalUrl, sourceDomain });
     }
 
     const client = getServiceClient();
     const sourceId = finalUrl;
     const existingBySourceId = await client.from('incidents').select('id,title').eq('source_id', sourceId).limit(1);
     if (!existingBySourceId.error && Array.isArray(existingBySourceId.data) && existingBySourceId.data.length > 0) {
+      logAttempt('duplicate', { ip, finalUrl, by: 'source_id' });
       return res.status(200).json({ ok: true, reason: 'duplicate', title: existingBySourceId.data[0].title || title });
     }
     const existingByUrl = await client.from('incidents').select('id,title').eq('article_url', finalUrl).limit(1);
     if (!existingByUrl.error && Array.isArray(existingByUrl.data) && existingByUrl.data.length > 0) {
+      logAttempt('duplicate', { ip, finalUrl, by: 'article_url' });
       return res.status(200).json({ ok: true, reason: 'duplicate', title: existingByUrl.data[0].title || title });
     }
 
@@ -191,14 +201,15 @@ module.exports = async (req, res) => {
 
     const inserted = await client.from('incidents').upsert([row], { onConflict: 'source_id' });
     if (inserted.error) {
-      return res.status(500).json({
-        ok: false,
-        reason: 'insert_failed',
+      return reject(500, 'insert_failed', {
+        ip,
+        finalUrl,
         detail: inserted.error.message || null,
       });
     }
+    logAttempt('inserted', { ip, finalUrl, title });
     return res.status(200).json({ ok: true, reason: 'inserted', title });
-  } catch {
-    return res.status(500).json({ ok: false, reason: 'internal_error' });
+  } catch (err) {
+    return reject(500, 'internal_error', { detail: String(err?.message || '').slice(0, 240) || null, ip });
   }
 };
