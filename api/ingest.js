@@ -145,9 +145,9 @@ function stripHtml(text) {
   return decodeXmlEntities(text).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
-async function fetchArticleBodySnippet(url, timeoutMs = 5000, fallbackText = '') {
+async function fetchArticleBodySnippet(url, timeoutMs = 5000, fallbackText = '', maxChars = 2000) {
   const input = canonicalizeUrl(url);
-  if (!input || !/^https?:\/\//i.test(input)) return String(fallbackText || '').slice(0, 2000);
+  if (!input || !/^https?:\/\//i.test(input)) return String(fallbackText || '').slice(0, maxChars);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -156,7 +156,7 @@ async function fetchArticleBodySnippet(url, timeoutMs = 5000, fallbackText = '')
       redirect: 'follow',
       signal: controller.signal,
     });
-    if (!res.ok) return String(fallbackText || '').slice(0, 2000);
+    if (!res.ok) return String(fallbackText || '').slice(0, maxChars);
     const html = await res.text();
     const articleChunk =
       html.match(/<article[\s\S]*?<\/article>/i)?.[0] ||
@@ -169,10 +169,10 @@ async function fetchArticleBodySnippet(url, timeoutMs = 5000, fallbackText = '')
     )
       .replace(/\s+/g, ' ')
       .trim();
-    if (!text) return String(fallbackText || '').slice(0, 2000);
-    return text.slice(0, 2000);
+    if (!text) return String(fallbackText || '').slice(0, maxChars);
+    return text.slice(0, maxChars);
   } catch {
-    return String(fallbackText || '').slice(0, 2000);
+    return String(fallbackText || '').slice(0, maxChars);
   } finally {
     clearTimeout(timer);
   }
@@ -852,7 +852,7 @@ async function normalize(client, article, index, dropCounters = null) {
     /\b(deepfake|voice clone|fake video|synthetic media|ai-generated|ai generated)\b/i;
   const trustedAiAnchor = /\b(ai|artificial intelligence)\b/i;
   const trustedAiRisk =
-    /\b(deepfake|synthetic media|fake video|fake image|voice clone|ai-generated|manipulated video|disinformation|misinformation|fabricated|non-consensual|impersonation|forged)\b/i;
+    /\b(deepfake|synthetic media|fake video|fake image|voice clone|ai-generated|manipulated video|disinformation|misinformation|fabricated|non-consensual|impersonation|forged|smear|cameo|influence operation|information operation|state media|propaganda|disinformation video|coordinated campaign|foreign interference|russian operation|iranian operation|chinese operation)\b/i;
   const trustedManipulationOnly =
     /\b(manipulated video|fabricated video|fake footage|forged video|edited video|altered video|doctored image|false video)\b/i;
   let relevanceSummary = description;
@@ -860,7 +860,10 @@ async function normalize(client, article, index, dropCounters = null) {
   const trustedAiRelaxDomain = trustedAiRelaxDomains.find((d) => trustedMatchText.includes(d));
   const baseRelevance = deepfakeRelevanceScore(title, description, sourceHint);
   if (article.ingest_source === 'rss' && trustedAiRelaxDomain && baseRelevance < 1) {
-    const snippet = await fetchArticleBodySnippet(article.url, 5000, `${title} ${description}`);
+    const isBbcTrusted =
+      /(bbc\.com|bbc\.co\.uk|bbci\.co\.uk)/i.test(trustedMatchText);
+    const snippetChars = isBbcTrusted ? 5000 : 2000;
+    const snippet = await fetchArticleBodySnippet(article.url, 5000, `${title} ${description}`, snippetChars);
     if (snippet) relevanceSummary = `${description} ${snippet}`.trim();
   }
   const trustedText = `${title} ${relevanceSummary} ${article.url || ''}`;
