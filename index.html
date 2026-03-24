@@ -23,10 +23,6 @@
   @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap');
 
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html {
-    -webkit-text-size-adjust: 80%;
-    text-size-adjust: 80%;
-  }
 
   .df-root {
     font-family: 'DM Sans', sans-serif;
@@ -600,6 +596,7 @@
     .df-resource-links a { font-size: 14px; }
     .df-legend-text { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .df-card-type { font-size: 12px; letter-spacing: 0.14em; }
+    .df-card-title { font-size: 14px; line-height: 1.32; overflow-wrap: anywhere; }
     .df-card-line, .df-card-platform { font-size: 12px; line-height: 1.3; }
     .df-card-link { font-size: 12px; }
     .df-no-image-wrap { overflow: hidden; }
@@ -684,18 +681,18 @@
   .df-no-image-wrap {
     width: 100%;
     height: 100%;
-    padding: 12px;
+    padding: 14px;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    justify-content: flex-start;
+    align-items: center;
+    justify-content: center;
     gap: 0;
     text-align: center;
   }
 
   .df-no-image-title {
     font-family: 'Playfair Display', serif;
-    font-size: 14px;
+    font-size: 24px;
     line-height: 1.1;
     color: #111;
     max-width: 92%;
@@ -715,6 +712,17 @@
     font-weight: 500;
   }
 
+  .df-card-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    line-height: 1.3;
+    color: #111;
+    font-weight: 400;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
 
   .df-card-platform {
     font-size: 14px;
@@ -941,11 +949,16 @@
       justify-content: center;
     }
     .df-card-meta {
-      padding: 6px 10px 10px;
+      padding: 8px 10px 10px;
     }
     .df-card-type {
-      margin-bottom: 1px;
+      margin-bottom: 2px;
       font-size: 12px !important;
+    }
+    .df-card-title {
+      font-size: 15px !important;
+      line-height: 1.3 !important;
+      margin-top: 0;
     }
     .df-card-platform,
     .df-card-line,
@@ -957,6 +970,11 @@
     .df-card-line.meta-extra {
       display: none !important;
     }
+    .df-card-title {
+      font-size: 16px !important;
+      font-weight: 500 !important;
+      line-height: 1 !important;
+    }
   }
 
   /* Mobile fallback for devices reporting wider visual viewport (iOS Safari quirks) */
@@ -964,21 +982,18 @@
     .df-card .df-card-meta .df-card-line {
       display: none !important;
     }
-    .df-curate-btn {
-      width: 100% !important;
-      padding: 10px 20px !important;
-      align-self: stretch !important;
-      justify-self: stretch !important;
-      display: inline-flex !important;
-      justify-content: center !important;
+    .df-card .df-card-meta .df-card-title {
+      font-size: 16px !important;
+      font-weight: 500 !important;
+      line-height: 1.15 !important;
     }
-  }
-
-  .df-card-title {
-    font-size: 16px;
-    line-height: 1;
-    font-weight: 500;
-    font-family: 'Playfair Display', Georgia, serif;
+    .df-curate-btn {
+      width: auto !important;
+      padding: 10px 20px !important;
+      align-self: flex-start !important;
+      justify-self: start !important;
+      display: inline-flex !important;
+    }
   }
 </style>
  </head>
@@ -1479,7 +1494,7 @@ function renderGallery() {
       </div>
       <div class="df-card-meta">
         <div class="df-card-type">${safeText(c.label)}</div>
-        <div class="df-card-title">${safeText(c.title)}</div>
+        <div class="df-card-title" style="font-size:16px;line-height:1.4;font-weight:500;">${safeText(c.title)}</div>
         <div class="df-card-platform">${safeText(c.platform)}</div>
       </div>
     </div>`).join('');
