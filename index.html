@@ -1494,7 +1494,7 @@ function renderGallery() {
       </div>
       <div class="df-card-meta">
         <div class="df-card-type">${safeText(c.label)}</div>
-        <div class="df-card-title">${safeText(c.title)}</div>
+        <div class="df-card-title" style="font-size:16px;line-height:1.4;font-weight:500;">${safeText(c.title)}</div>
         <div class="df-card-platform">${safeText(c.platform)}</div>
         <div class="df-card-line meta-extra">Ingest source: ${safeText((c.ingestSource || 'unknown').toUpperCase())}</div>
         <div class="df-card-line meta-extra">Publisher: ${safeText(c.source || 'Unknown')}</div>
