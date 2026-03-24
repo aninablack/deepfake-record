@@ -192,7 +192,11 @@ module.exports = async (req, res) => {
 
     const inserted = await client.from('incidents').upsert([row], { onConflict: 'source_id' });
     if (inserted.error) {
-      return res.status(500).json({ ok: false, reason: 'insert_failed' });
+      return res.status(500).json({
+        ok: false,
+        reason: 'insert_failed',
+        detail: inserted.error.message || null,
+      });
     }
     return res.status(200).json({ ok: true, reason: 'inserted', title });
   } catch {
