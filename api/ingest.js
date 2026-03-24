@@ -722,7 +722,7 @@ function overrideCategoryByKeywords(title, description, currentType) {
   return currentType;
 }
 
-async function normalize(client, article, index, dropCounters = null, debugStats = null) {
+async function normalize(client, article, index, dropCounters = null) {
   const title = (article.title || '').trim();
   if (/^(disinfo update|weekly update|newsletter|roundup|digest)\b/i.test(title)) {
     bumpDrop(dropCounters, 'dropped_generic_update_title');
@@ -818,21 +818,9 @@ async function normalize(client, article, index, dropCounters = null, debugStats
     /\b(manipulated video|fabricated video|fake footage|forged video|edited video|altered video|doctored image|false video)\b/i;
   const trustedText = `${title} ${description} ${article.url || ''}`;
   const trustedAiRelaxDomain = trustedAiRelaxDomains.find((d) => trustedMatchText.includes(d));
-  if (debugStats && trustedAiRelaxDomain) {
-    debugStats.trustedDomainSeen = Number(debugStats.trustedDomainSeen || 0) + 1;
-  }
   const hasTrustedAiAnchor = trustedAiAnchor.test(trustedText);
   const hasTrustedAiRisk = trustedAiRisk.test(trustedText);
   const hasTrustedManipulationOnly = trustedManipulationOnly.test(trustedText);
-  if (debugStats && trustedAiRelaxDomain && hasTrustedAiAnchor) {
-    debugStats.trustedDomainAiAnchor = Number(debugStats.trustedDomainAiAnchor || 0) + 1;
-  }
-  if (debugStats && trustedAiRelaxDomain && hasTrustedAiRisk) {
-    debugStats.trustedDomainRiskTerm = Number(debugStats.trustedDomainRiskTerm || 0) + 1;
-  }
-  if (debugStats && trustedAiRelaxDomain && hasTrustedManipulationOnly) {
-    debugStats.trustedDomainManipulationTerm = Number(debugStats.trustedDomainManipulationTerm || 0) + 1;
-  }
   const trustedAiRelaxPass =
     Boolean(trustedAiRelaxDomain) &&
     (
@@ -840,9 +828,6 @@ async function normalize(client, article, index, dropCounters = null, debugStats
       (hasTrustedAiAnchor && hasTrustedAiRisk) ||
       hasTrustedManipulationOnly
     );
-  if (debugStats && trustedAiRelaxPass) {
-    debugStats.trustedDomainRelaxPass = Number(debugStats.trustedDomainRelaxPass || 0) + 1;
-  }
   const trustedRelevanceDomains = [
     'bbc.co.uk',
     'bbc.com',
@@ -874,18 +859,6 @@ async function normalize(client, article, index, dropCounters = null, debugStats
   if (!trustedSignalPass && !trustedAiRelaxPass && !isFactcheck && !isDeepfakeRelevant(fullText, trustedMatchText)) {
     bumpDrop(dropCounters, 'dropped_not_deepfake_relevant');
     return null;
-  }
-  if (trustedAiRelaxPass && !trustedSignalPass && debugStats) {
-    debugStats.trustedDomainKept = Number(debugStats.trustedDomainKept || 0) + 1;
-    if (Array.isArray(debugStats.trustedDomainMatches) && debugStats.trustedDomainMatches.length < 3) {
-      debugStats.trustedDomainMatches.push({
-        matched_domain: trustedAiRelaxDomain,
-        source_domain: article.domain || article.source_domain || null,
-        url: article.url || null,
-        title: title || null,
-      });
-      console.log('[trusted-domain-match]', trustedAiRelaxDomain, article.domain || article.source_domain || '', article.url || '');
-    }
   }
   if (!trustedSignalPass && isFactcheck && !factcheckCandidate) {
     bumpDrop(dropCounters, 'dropped_factcheck_candidate');
@@ -1191,17 +1164,8 @@ module.exports = async (_req, res) => {
     }
     const mergedRaw = [...raw, ...rssRaw, ...newsDataRaw, ...redditRaw];
     const dropCounters = {};
-    const debugStats = {
-      trustedDomainKept: 0,
-      trustedDomainMatches: [],
-      trustedDomainSeen: 0,
-      trustedDomainAiAnchor: 0,
-      trustedDomainRiskTerm: 0,
-      trustedDomainManipulationTerm: 0,
-      trustedDomainRelaxPass: 0,
-    };
     const normalized = await Promise.all(
-      mergedRaw.map((item, idx) => normalize(client, item, idx, dropCounters, debugStats))
+      mergedRaw.map((item, idx) => normalize(client, item, idx, dropCounters))
     );
     const normalizedKept = normalized.filter(Boolean);
     const deduped = dedupeIncidents(normalizedKept);
@@ -1252,13 +1216,6 @@ module.exports = async (_req, res) => {
       context_fetched: rawContext.length,
       context_upserted: contextResult.inserted,
       archived_events_logged: eventsResult.inserted || 0,
-      trusted_domain_kept: debugStats.trustedDomainKept || 0,
-      trusted_domain_matches: debugStats.trustedDomainMatches || [],
-      trusted_domain_seen: debugStats.trustedDomainSeen || 0,
-      trusted_domain_ai_anchor: debugStats.trustedDomainAiAnchor || 0,
-      trusted_domain_risk_term: debugStats.trustedDomainRiskTerm || 0,
-      trusted_domain_manipulation_term: debugStats.trustedDomainManipulationTerm || 0,
-      trusted_domain_relax_pass: debugStats.trustedDomainRelaxPass || 0,
       dropped: dropCounters,
       warning: warnings.length ? warnings.join(' ') : null,
       at: new Date().toISOString(),
