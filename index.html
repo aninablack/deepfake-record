@@ -374,6 +374,14 @@
     margin-top: -2px;
   }
 
+  .df-curate-hint {
+    grid-column: 1 / 2;
+    font-size: 12px;
+    color: #666;
+    margin-top: -2px;
+    line-height: 1.35;
+  }
+
   .df-curate-status.ok { color: #1f5c35; }
   .df-curate-status.err { color: #7a2020; }
 
@@ -899,6 +907,7 @@
       aria-label="Submit article URL for curation"
       required
     />
+    <div class="df-curate-hint">Best results: news articles reporting a specific incident, not opinion pieces or general analysis.</div>
     <button id="curateSubmit" class="df-curate-btn" type="submit">Submit Source</button>
     <div class="df-curate-note">Published news articles only · Automatically verified for relevance</div>
     <div id="curateStatus" class="df-curate-status"></div>
@@ -1217,8 +1226,11 @@ async function submitCuratedUrl(event) {
       status.className = 'df-curate-status err';
       const reasonMap = {
         invalid_url: 'Please enter a valid article URL.',
-        not_relevant: 'Rejected: not deepfake/synthetic-media relevant.',
-        rate_limited: 'Too many submissions from this IP. Try again in about an hour.',
+        not_relevant: "This article doesn't appear to be about a specific synthetic media incident.",
+        duplicate: 'This article is already in the record.',
+        rate_limited: 'Too many submissions, try again in an hour.',
+        fetch_failed_403: 'Could not access this article: publisher blocking automated access.',
+        fetch_failed_404: 'Could not access this article: article not found.',
         missing_title: 'Could not extract article title from the URL.',
       };
       status.textContent = reasonMap[json.reason] || `Rejected: ${json.reason || 'unable to curate this URL'}.`;
