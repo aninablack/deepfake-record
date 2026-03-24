@@ -979,7 +979,10 @@
 
   /* Mobile fallback for devices reporting wider visual viewport (iOS Safari quirks) */
   @media (max-width: 900px), (hover: none) and (pointer: coarse) {
-    .df-card-title {
+    .df-card .df-card-meta .df-card-line {
+      display: none !important;
+    }
+    .df-card .df-card-meta .df-card-title {
       font-size: 16px !important;
       font-weight: 500 !important;
       line-height: 1.15 !important;
