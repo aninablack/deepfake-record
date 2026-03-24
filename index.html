@@ -347,6 +347,33 @@
     min-height: 18px;
   }
 
+  .df-curate-head {
+    grid-column: 1 / -1;
+    font-family: 'Playfair Display', serif;
+    font-size: 26px;
+    line-height: 1.15;
+    color: #111;
+    margin-bottom: 2px;
+  }
+
+  .df-curate-copy {
+    grid-column: 1 / -1;
+    font-size: 14px;
+    color: #555;
+    line-height: 1.45;
+    max-width: 780px;
+  }
+
+  .df-curate-note {
+    grid-column: 2 / 3;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #777;
+    text-align: right;
+    margin-top: -2px;
+  }
+
   .df-curate-status.ok { color: #1f5c35; }
   .df-curate-status.err { color: #7a2020; }
 
@@ -862,6 +889,8 @@
   </div>
 
   <form class="df-curate" id="curateForm">
+    <div class="df-curate-head">Be a contributor and help build the record.</div>
+    <div class="df-curate-copy">Spotted a deepfake incident we've missed? Paste a link to any published news article and we'll verify and add it to the archive.</div>
     <input
       id="curateUrl"
       class="df-curate-input"
@@ -871,6 +900,7 @@
       required
     />
     <button id="curateSubmit" class="df-curate-btn" type="submit">Submit Source</button>
+    <div class="df-curate-note">Published news articles only · Automatically verified for relevance</div>
     <div id="curateStatus" class="df-curate-status"></div>
   </form>
 
