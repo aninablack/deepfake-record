@@ -964,6 +964,25 @@
       line-height: 1 !important;
     }
   }
+
+  /* Mobile fallback for devices reporting wider visual viewport (iOS Safari quirks) */
+  @media (max-width: 900px), (hover: none) and (pointer: coarse) {
+    .df-card-line.meta-extra {
+      display: none !important;
+    }
+    .df-card-title {
+      font-size: 16px !important;
+      font-weight: 500 !important;
+      line-height: 1.12 !important;
+    }
+    .df-curate-btn {
+      width: auto !important;
+      padding: 10px 20px !important;
+      align-self: flex-start !important;
+      justify-self: start !important;
+      display: inline-flex !important;
+    }
+  }
 </style>
  </head>
 <body>
