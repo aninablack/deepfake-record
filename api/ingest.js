@@ -865,10 +865,13 @@ async function normalize(client, article, index, dropCounters = null, debugStats
   const isTrustedSource = trustedDomains.some((d) => String(article.domain || '').toLowerCase().includes(d));
   const relevanceScore = deepfakeRelevanceScore(title, description, article.domain || article.source_domain || article.url || '');
   const trustedSignalPass =
-    isTrustedSource && (hasStrongDeepfakeSignal(fullText) || relevanceScore >= minScore || isDeepfakeRelevant(fullText));
+    isTrustedSource &&
+    (hasStrongDeepfakeSignal(fullText) ||
+      relevanceScore >= minScore ||
+      isDeepfakeRelevant(fullText, trustedMatchText));
   const factcheckCandidate =
     isFactcheck && (relevanceScore >= 1 || hasStrongDeepfakeSignal(fullText));
-  if (!trustedSignalPass && !trustedAiRelaxPass && !isFactcheck && !isDeepfakeRelevant(fullText)) {
+  if (!trustedSignalPass && !trustedAiRelaxPass && !isFactcheck && !isDeepfakeRelevant(fullText, trustedMatchText)) {
     bumpDrop(dropCounters, 'dropped_not_deepfake_relevant');
     return null;
   }
