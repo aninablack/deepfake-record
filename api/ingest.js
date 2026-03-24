@@ -784,10 +784,24 @@ async function normalize(client, article, index, dropCounters = null) {
     return null;
   }
   const fullText = `${title} ${description} ${article.url || ''}`;
+  const source = String(article.domain || '').toLowerCase();
+  const trustedRelevanceDomains = [
+    'bbc.co.uk',
+    'bbc.com',
+    'independent.co.uk',
+    'theguardian.com',
+    'reuters.com',
+    'ft.com',
+    'foreignpolicy.com',
+    'france24.com',
+    'aljazeera.com',
+    'dw.com',
+  ];
+  const minScore = trustedRelevanceDomains.some((d) => source.includes(d)) ? 1 : 2;
   const isTrustedSource = trustedDomains.some((d) => String(article.domain || '').toLowerCase().includes(d));
   const relevanceScore = deepfakeRelevanceScore(title, description);
   const trustedSignalPass =
-    isTrustedSource && (hasStrongDeepfakeSignal(fullText) || relevanceScore >= 1 || isDeepfakeRelevant(fullText));
+    isTrustedSource && (hasStrongDeepfakeSignal(fullText) || relevanceScore >= minScore || isDeepfakeRelevant(fullText));
   const factcheckCandidate =
     isFactcheck && (relevanceScore >= 1 || hasStrongDeepfakeSignal(fullText));
   if (!trustedSignalPass && !isFactcheck && !isDeepfakeRelevant(fullText)) {
@@ -980,6 +994,12 @@ async function upsertContextArticles(client, articles) {
   return { inserted: articles.length };
 }
 
+async function dedupeSimilarIncidents(client) {
+  const { error } = await client.rpc('dedupe_similar_incidents');
+  if (error) return { ok: false };
+  return { ok: true };
+}
+
 async function logIngestRun(client, fetched, upserted) {
   // Optional analytics table for "items scanned" counter.
   const { error } = await client.from('ingest_runs').insert({
@@ -1117,6 +1137,7 @@ module.exports = async (_req, res) => {
       };
     }));
     const result = await upsertIncidents(client, incidents);
+    await dedupeSimilarIncidents(client);
     const contextResult = await upsertContextArticles(client, contextArticles);
     const eventsResult = await logIncidentEvents(client, incidents);
     await logIngestRun(client, mergedRaw.length, result.inserted);
