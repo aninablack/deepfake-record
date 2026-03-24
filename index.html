@@ -530,7 +530,13 @@
       overflow: visible;
     }
     .df-logo { font-size: 10px; letter-spacing: 0.24em; white-space: nowrap; }
-    .df-live-pill { font-size: 9px; letter-spacing: 0.12em; white-space: nowrap; flex-shrink: 0; }
+    .df-live-pill {
+      font-size: 0;
+      letter-spacing: 0;
+      white-space: nowrap;
+      flex-shrink: 0;
+      gap: 0;
+    }
     .df-hero { grid-template-columns: 1fr; gap: 8px; align-items: start; padding: 14px 14px 10px; }
     .df-hero-headline { font-size: 36px; line-height: 1.08; margin-top: 0; }
     .df-counter-block { display: none; }
@@ -539,16 +545,31 @@
     .df-filters {
       padding: 10px 12px;
       gap: 0;
-      overflow-x: visible;
+      overflow-x: auto;
       overflow-y: hidden;
-      white-space: normal;
-      flex-wrap: wrap;
+      white-space: nowrap;
+      flex-wrap: nowrap;
+      -webkit-overflow-scrolling: touch;
     }
     .df-mode-switch { margin-right: 8px; padding-right: 8px; border-right: 1px solid #ddd; flex: 0 0 auto; }
-    .df-search-wrap { margin-left: 8px; min-width: 100%; max-width: none; width: 100%; flex: 1 0 100%; }
+    .df-search-wrap { margin-left: 8px; min-width: 220px; max-width: 280px; width: 220px; flex: 0 0 220px; }
     .df-search-input { font-size: 14px; padding: 9px 10px; }
 
-    .df-curate,
+    .df-curate {
+      display: grid;
+      grid-template-columns: 1fr;
+      padding: 12px;
+      gap: 8px;
+    }
+    .df-curate-input { width: 100%; }
+    .df-curate-btn { width: 100%; }
+    .df-curate-hint,
+    .df-curate-note {
+      grid-column: 1 / -1;
+      text-align: left;
+      white-space: normal;
+    }
+
     .df-resources,
     .df-legend { display: none; }
 
