@@ -870,7 +870,7 @@ async function normalize(client, article, index, dropCounters = null, debugStats
     bumpDrop(dropCounters, 'dropped_factcheck_candidate');
     return null;
   }
-  if (!trustedSignalPass && !passesStrictRelevance(article, title, description)) {
+  if (!trustedSignalPass && !trustedAiRelaxPass && !passesStrictRelevance(article, title, description)) {
     bumpDrop(dropCounters, 'dropped_strict_relevance');
     return null;
   }
@@ -880,7 +880,7 @@ async function normalize(client, article, index, dropCounters = null, debugStats
     bumpDrop(dropCounters, 'dropped_factcheck_relevance_floor');
     return null;
   }
-  if (!trustedSignalPass && !isFactcheck && isContextOnlyArticle(`${title} ${description} ${article.url || ''}`)) {
+  if (!trustedSignalPass && !trustedAiRelaxPass && !isFactcheck && isContextOnlyArticle(`${title} ${description} ${article.url || ''}`)) {
     bumpDrop(dropCounters, 'dropped_context_only');
     return null;
   }
