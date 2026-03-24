@@ -813,7 +813,7 @@ async function normalize(client, article, index, dropCounters = null, debugStats
     /\b(deepfake|voice clone|fake video|synthetic media|ai-generated|ai generated)\b/i;
   const trustedAiAnchor = /\b(ai|artificial intelligence)\b/i;
   const trustedAiRisk =
-    /\b(misinformation|manipulated|fabricated|impersonation|synthetic|clone|hoax|disinformation|fraud|scam|fake)\b/i;
+    /\b(deepfake|synthetic media|fake video|fake image|voice clone|ai-generated|manipulated video|disinformation|misinformation|fabricated|non-consensual|impersonation|forged)\b/i;
   const trustedManipulationOnly =
     /\b(manipulated video|fabricated video|fake footage|forged video|edited video|altered video|doctored image|false video)\b/i;
   const trustedText = `${title} ${description} ${article.url || ''}`;
