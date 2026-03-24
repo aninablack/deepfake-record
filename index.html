@@ -913,6 +913,30 @@
   .b-pol { background: #f5f0ea; color: #5a3e28; }
   .b-fraud { background: #fce8e8; color: #7a2020; }
   .b-ent { background: #f5eaf8; color: #4a1a60; }
+
+  /* Final mobile overrides kept at end of stylesheet to win cascade */
+  @media (max-width: 768px) {
+    .df-no-image-wrap {
+      overflow: hidden;
+      padding: 8px;
+    }
+    .df-no-image-title {
+      font-size: 12px;
+      line-height: 1.2;
+      max-height: calc(1.2em * 4);
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 4;
+      -webkit-box-orient: vertical;
+    }
+    .df-curate-btn {
+      width: auto;
+      padding: 10px 20px;
+      align-self: flex-start;
+      justify-self: start;
+      display: inline-flex;
+    }
+  }
 </style>
  </head>
 <body>
