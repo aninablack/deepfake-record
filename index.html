@@ -743,6 +743,17 @@
     overflow: hidden;
   }
 
+  /* Mobile-first: hide secondary metadata unless desktop breakpoint explicitly enables it */
+  .df-card-line.meta-extra {
+    display: none !important;
+  }
+
+  @media (min-width: 769px) {
+    .df-card-line.meta-extra {
+      display: -webkit-box !important;
+    }
+  }
+
   .df-card-link {
     color: #333;
     text-decoration: none;
@@ -967,13 +978,10 @@
 
   /* Mobile fallback for devices reporting wider visual viewport (iOS Safari quirks) */
   @media (max-width: 900px), (hover: none) and (pointer: coarse) {
-    .df-card-line.meta-extra {
-      display: none !important;
-    }
     .df-card-title {
       font-size: 16px !important;
       font-weight: 500 !important;
-      line-height: 1.12 !important;
+      line-height: 1.15 !important;
     }
     .df-curate-btn {
       width: auto !important;
