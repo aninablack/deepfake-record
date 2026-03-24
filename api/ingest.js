@@ -809,14 +809,22 @@ async function normalize(client, article, index, dropCounters = null, debugStats
     'abcnews.go.com',
     'thehill.com',
   ];
+  const trustedDeepfakeSignal =
+    /\b(deepfake|voice clone|fake video|synthetic media|ai-generated|ai generated)\b/i;
   const trustedAiAnchor = /\b(ai|artificial intelligence)\b/i;
   const trustedAiRisk =
-    /\b(misinformation|manipulated|fabricated|impersonation|synthetic|clone|hoax|disinformation|fraud|scam|fake video|deepfake|voice clone|generated)\b/i;
+    /\b(misinformation|manipulated|fabricated|impersonation|synthetic|clone|hoax|disinformation|fraud|scam|fake)\b/i;
+  const trustedManipulationOnly =
+    /\b(manipulated video|fabricated video|fake footage|forged video|edited video|altered video|doctored image|false video)\b/i;
+  const trustedText = `${title} ${description} ${article.url || ''}`;
   const trustedAiRelaxDomain = trustedAiRelaxDomains.find((d) => trustedMatchText.includes(d));
   const trustedAiRelaxPass =
     Boolean(trustedAiRelaxDomain) &&
-    trustedAiAnchor.test(`${title} ${description}`) &&
-    trustedAiRisk.test(`${title} ${description}`);
+    (
+      trustedDeepfakeSignal.test(trustedText) ||
+      (trustedAiAnchor.test(trustedText) && trustedAiRisk.test(trustedText)) ||
+      trustedManipulationOnly.test(trustedText)
+    );
   const trustedRelevanceDomains = [
     'bbc.co.uk',
     'bbc.com',
