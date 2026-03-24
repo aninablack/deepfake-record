@@ -785,6 +785,28 @@ async function normalize(client, article, index, dropCounters = null) {
   }
   const fullText = `${title} ${description} ${article.url || ''}`;
   const source = String(article.domain || '').toLowerCase();
+  const trustedAiRelaxDomains = [
+    'bbc.co.uk',
+    'bbc.com',
+    'independent.co.uk',
+    'theguardian.com',
+    'aljazeera.com',
+    'dw.com',
+    'france24.com',
+    'npr.org',
+    'axios.com',
+    'wired.com',
+    'nbcnews.com',
+    'abcnews.go.com',
+    'thehill.com',
+  ];
+  const trustedAiAnchor = /\b(ai|artificial intelligence)\b/i;
+  const trustedAiRisk =
+    /\b(misinformation|manipulated|fabricated|impersonation|synthetic|clone|hoax|disinformation|fraud|scam|fake video|deepfake|voice clone|generated)\b/i;
+  const trustedAiRelaxPass =
+    trustedAiRelaxDomains.some((d) => source.includes(d)) &&
+    trustedAiAnchor.test(`${title} ${description}`) &&
+    trustedAiRisk.test(`${title} ${description}`);
   const trustedRelevanceDomains = [
     'bbc.co.uk',
     'bbc.com',
@@ -810,7 +832,7 @@ async function normalize(client, article, index, dropCounters = null) {
     isTrustedSource && (hasStrongDeepfakeSignal(fullText) || relevanceScore >= minScore || isDeepfakeRelevant(fullText));
   const factcheckCandidate =
     isFactcheck && (relevanceScore >= 1 || hasStrongDeepfakeSignal(fullText));
-  if (!trustedSignalPass && !isFactcheck && !isDeepfakeRelevant(fullText)) {
+  if (!trustedSignalPass && !trustedAiRelaxPass && !isFactcheck && !isDeepfakeRelevant(fullText)) {
     bumpDrop(dropCounters, 'dropped_not_deepfake_relevant');
     return null;
   }
