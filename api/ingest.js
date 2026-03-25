@@ -77,7 +77,27 @@ function shouldExcludeDomain(domain) {
 
 function isExcludedByTitle(title) {
   const t = String(title || '').toLowerCase();
-  return /(fortnite|gaming skin|battle pass|haskell for all|agentic coding spec|iphone bug|nvidia dlss|meme backlash)/.test(t);
+  const staticDrops =
+    /(fortnite|gaming skin|battle pass|haskell for all|agentic coding spec|iphone bug|nvidia dlss|meme backlash|fragility of truth|sora video|shutting down sora|openai shutting|war\s*,)/.test(t);
+  const productShutdownNews =
+    /\bshutting down\b/.test(t) &&
+    /\b(product|feature|tool|app|service|model|platform|sora|chatgpt|gemini|copilot)\b/.test(t);
+  return staticDrops || productShutdownNews;
+}
+
+function isGeneralAiBusinessNews(title, description) {
+  const text = `${title || ''} ${description || ''}`.toLowerCase();
+  return /\b(earnings|revenue|valuation|funding|investment|market share|strategy|roadmap|product update|feature update|rollout|launch|announced|announcement|business model|quarterly|stock|shares|partnership)\b/.test(
+    text
+  );
+}
+
+function hasNamedVictimOrSpecificTarget(text) {
+  const value = String(text || '');
+  const explicitTargetTerms =
+    /\b(victim|victims|targeted|employee|students?|teachers?|journalists?|candidate|politician|minister|prime minister|president|ceo|bank|company|school|hospital|child|minor|individual|person|woman|man)\b/i;
+  const likelyNamedEntity = /\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2}\b/.test(value);
+  return explicitTargetTerms.test(value) || likelyNamedEntity;
 }
 
 function hasStrongDeepfakeSignal(text) {
@@ -919,6 +939,12 @@ async function normalize(client, article, index, dropCounters = null) {
     return null;
   }
   const incidentCandidate = isIncidentCandidate(article, title, relevanceSummary);
+  const namedVictimOrTarget = hasNamedVictimOrSpecificTarget(`${title} ${relevanceSummary}`);
+  const generalBusinessNews = isGeneralAiBusinessNews(title, relevanceSummary);
+  if (!incidentCandidate && !namedVictimOrTarget && generalBusinessNews) {
+    bumpDrop(dropCounters, 'dropped_general_ai_business_news');
+    return null;
+  }
   // Fact-check sources are already curated; avoid over-pruning due to softer wording.
   if (!trustedSignalPass && isFactcheck && relevanceScore < 1) {
     bumpDrop(dropCounters, 'dropped_factcheck_relevance_floor');
