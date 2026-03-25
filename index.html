@@ -523,17 +523,21 @@
   @media (max-width: 768px) {
     .df-gallery {
       columns: unset;
-      display: flex;
-      flex-direction: row;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
       align-items: flex-start;
       padding: 14px 12px;
     }
     .df-gallery-col {
-      flex: 1;
+      min-width: 0;
       display: flex;
       flex-direction: column;
       gap: 8px;
+    }
+    .df-gallery-col .df-card {
+      width: 100%;
+      min-width: 0;
     }
     .df-root { overflow-x: hidden; }
     .df-masthead {
