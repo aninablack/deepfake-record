@@ -692,8 +692,8 @@
 
   .df-no-image-title {
     font-family: 'Playfair Display', serif;
-    font-size: 15px;
-    line-height: 1.1;
+    font-size: 18px;
+    line-height: 1.3;
     color: #111;
     max-width: 92%;
   }
@@ -1577,7 +1577,7 @@ function renderGallery() {
   const categoryFiltered = filter === 'all' ? linkableCards : linkableCards.filter((c) => c.type === filter);
   const list = categoryFiltered.filter(matchesSearch);
   document.getElementById('gallery').innerHTML = list.map((c) => `
-    <div class="df-card${usesFallbackVisual(c.imageUrl) ? ' df-card-fallback' : ''}" data-url="${safeText(c.articleUrl || c.claimUrl || '')}" data-title="${safeText(c.title || '')}" data-meta="${safeText(c.platform || '')}" data-summary="${safeText(c.summary || '')}">
+    <div class="df-card${(!String(c.imageUrl || '').trim() || String(c.imageUrl || '').toLowerCase().includes('pollinations')) ? ' df-card-fallback' : ''}" data-url="${safeText(c.articleUrl || c.claimUrl || '')}" data-title="${safeText(c.title || '')}" data-meta="${safeText(c.platform || '')}" data-summary="${safeText(c.summary || '')}">
       <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">
         ${imageHtml(c.imageUrl, c.title, c.summary, c.label)}
         ${c.imageUrl ? imageSourceBadge(c.source || '') : ''}
