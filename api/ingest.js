@@ -779,12 +779,16 @@ async function fetchAiaaicIncidents() {
     };
   }
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(endpoint, {
       headers: {
         accept: 'text/csv,application/csv,text/plain;q=0.9,*/*;q=0.8',
         'user-agent': 'deepfake-record/1.0 (+https://deepfake-record.vercel.app)',
       },
+      signal: controller.signal,
     });
+    clearTimeout(timer);
     if (!res.ok) {
       const body = await res.text();
       return { records: [], status: 'http_error', http: res.status, error: body.slice(0, 240) };
@@ -805,8 +809,12 @@ async function fetchAiaaicIncidents() {
       .filter((r) => String(r.title || '').trim() && String(r.url || '').trim())
       .slice(0, 25);
     return { records, status: records.length ? 'ok' : 'ok_zero_results', http: res.status, error: null };
-  } catch {
-    return { records: [], status: 'fetch_failed', http: null, error: null };
+  } catch (err) {
+    const timedOut = String(err?.name || '').toLowerCase() === 'aborterror';
+    if (timedOut) {
+      return { records: [], status: 'timeout', http: null, error: 'AIAAIC request timed out after 5000ms' };
+    }
+    return { records: [], status: 'fetch_failed', http: null, error: String(err?.message || 'unknown_error').slice(0, 240) };
   }
 }
 
@@ -830,6 +838,8 @@ async function fetchAiidIncidents() {
     }
   }`;
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -841,7 +851,9 @@ async function fetchAiidIncidents() {
         'user-agent': 'deepfake-record/1.0 (+https://deepfake-record.vercel.app)',
       },
       body: JSON.stringify({ query }),
+      signal: controller.signal,
     });
+    clearTimeout(timer);
     if (!res.ok) {
       const body = await res.text();
       return { records: [], status: 'http_error', http: res.status, error: body.slice(0, 240) };
@@ -852,8 +864,12 @@ async function fetchAiidIncidents() {
       .filter((r) => String(r.title || '').trim() && String(r.url || '').trim())
       .slice(0, 25);
     return { records, status: rows.length ? 'ok' : 'ok_zero_results', http: res.status, error: null };
-  } catch {
-    return { records: [], status: 'fetch_failed', http: null, error: null };
+  } catch (err) {
+    const timedOut = String(err?.name || '').toLowerCase() === 'aborterror';
+    if (timedOut) {
+      return { records: [], status: 'timeout', http: null, error: 'AIID request timed out after 5000ms' };
+    }
+    return { records: [], status: 'fetch_failed', http: null, error: String(err?.message || 'unknown_error').slice(0, 240) };
   }
 }
 
