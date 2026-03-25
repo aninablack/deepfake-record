@@ -655,6 +655,64 @@ async function fetchNewsDataArticles(queryOverride = null, sizeOverride = null) 
   }
 }
 
+function mapAiidRows(rows) {
+  return rows.map((item) => {
+    const link = canonicalizeUrl(item?.url || item?.link || '');
+    const domain = (() => {
+      try {
+        return new URL(link).hostname.replace(/^www\./, '');
+      } catch {
+        return 'incidentdatabase.ai';
+      }
+    })();
+    const title = String(item?.title || item?.incident_title || '').trim();
+    const description = String(item?.description || item?.summary || item?.details || '').trim();
+    const seenDate = item?.date || item?.published_at || item?.created_at || null;
+    return {
+      title,
+      url: link,
+      seendate: seenDate,
+      domain,
+      sourcecountry: null,
+      language: 'en',
+      socialimage: null,
+      description,
+      source_type: 'verified',
+      source_priority_override: 'major_outlet',
+      claim_url: null,
+      ingest_source: 'aiid',
+    };
+  });
+}
+
+async function fetchAiidIncidents() {
+  const endpoint = 'https://incidentdatabase.ai/api/incidents?format=json&limit=10';
+  try {
+    const res = await fetch(endpoint, {
+      headers: {
+        accept: 'application/json',
+        'user-agent': 'deepfake-record/1.0 (+https://deepfake-record.vercel.app)',
+      },
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      return { records: [], status: 'http_error', http: res.status, error: body.slice(0, 240) };
+    }
+    const json = await res.json();
+    const rows = Array.isArray(json)
+      ? json
+      : Array.isArray(json?.incidents)
+        ? json.incidents
+        : Array.isArray(json?.results)
+          ? json.results
+          : [];
+    const records = mapAiidRows(rows).slice(0, 10);
+    return { records, status: rows.length ? 'ok' : 'ok_zero_results', http: res.status, error: null };
+  } catch {
+    return { records: [], status: 'fetch_failed', http: null, error: null };
+  }
+}
+
 function utcDayRange(date = new Date()) {
   const d = new Date(date);
   const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
@@ -1038,7 +1096,7 @@ async function normalize(client, article, index, dropCounters = null) {
     modalities,
     tags,
     harm_level: deriveHarmLevel(blended.confidence, `${title} ${description}`),
-    source_priority: deriveSourcePriority(sourceDomain),
+    source_priority: article.source_priority_override || deriveSourcePriority(sourceDomain),
     incident_key: buildIncidentKey(title, classified.type, publishedAt),
   };
 }
@@ -1196,6 +1254,10 @@ module.exports = async (_req, res) => {
     let newsDataStatus = 'disabled';
     let newsDataHttp = null;
     let newsDataError = null;
+    let aiidRaw = [];
+    let aiidStatus = 'disabled';
+    let aiidHttp = null;
+    let aiidError = null;
     const redditRaw = [];
     const redditStatuses = [];
 
@@ -1261,7 +1323,20 @@ module.exports = async (_req, res) => {
       newsDataError = null;
       warnings.push('NewsData fetch failed; continuing with remaining sources.');
     }
-    const mergedRaw = [...raw, ...rssRaw, ...newsDataRaw, ...redditRaw];
+    try {
+      const aiidResult = await fetchAiidIncidents();
+      aiidRaw = Array.isArray(aiidResult?.records) ? aiidResult.records.slice(0, 10) : [];
+      aiidStatus = String(aiidResult?.status || 'unknown');
+      aiidHttp = aiidResult?.http ?? null;
+      aiidError = aiidResult?.error || null;
+    } catch {
+      aiidRaw = [];
+      aiidStatus = 'fetch_failed';
+      aiidHttp = null;
+      aiidError = null;
+      warnings.push('AI Incident Database fetch failed; continuing with remaining sources.');
+    }
+    const mergedRaw = [...raw, ...rssRaw, ...newsDataRaw, ...aiidRaw, ...redditRaw];
     const dropCounters = {};
     const normalized = await Promise.all(
       mergedRaw.map((item, idx) => normalize(client, item, idx, dropCounters))
@@ -1310,6 +1385,10 @@ module.exports = async (_req, res) => {
       newsdata_status: newsDataStatus,
       newsdata_http: newsDataHttp,
       newsdata_error: newsDataError,
+      fetched_aiid: aiidRaw.length,
+      aiid_status: aiidStatus,
+      aiid_http: aiidHttp,
+      aiid_error: aiidError,
       fetched_reddit: redditRaw.length,
       reddit_statuses: redditStatuses,
       context_fetched: rawContext.length,
