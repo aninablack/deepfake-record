@@ -787,7 +787,9 @@ async function fetchAiaaicIncidents() {
       });
       return out;
     });
-    const records = mapAiaaicRows(bodyRows).filter((r) => String(r.title || '').trim() && String(r.url || '').trim());
+    const records = mapAiaaicRows(bodyRows)
+      .filter((r) => String(r.title || '').trim() && String(r.url || '').trim())
+      .slice(0, 25);
     return { records, status: records.length ? 'ok' : 'ok_zero_results', http: res.status, error: null };
   } catch {
     return { records: [], status: 'fetch_failed', http: null, error: null };
@@ -795,7 +797,7 @@ async function fetchAiaaicIncidents() {
 }
 
 async function fetchAiidIncidents() {
-  const endpoint = 'https://incidentdatabase.ai/api/incidents?format=json&limit=10';
+  const endpoint = 'https://incidentdatabase.ai/api/incidents?format=json&limit=25';
   try {
     const res = await fetch(endpoint, {
       headers: {
@@ -815,7 +817,7 @@ async function fetchAiidIncidents() {
         : Array.isArray(json?.results)
           ? json.results
           : [];
-    const records = mapAiidRows(rows).slice(0, 10);
+    const records = mapAiidRows(rows).slice(0, 25);
     return { records, status: rows.length ? 'ok' : 'ok_zero_results', http: res.status, error: null };
   } catch {
     return { records: [], status: 'fetch_failed', http: null, error: null };
@@ -1438,7 +1440,7 @@ module.exports = async (_req, res) => {
     }
     try {
       const aiidResult = await fetchAiidIncidents();
-      aiidRaw = Array.isArray(aiidResult?.records) ? aiidResult.records.slice(0, 10) : [];
+      aiidRaw = Array.isArray(aiidResult?.records) ? aiidResult.records.slice(0, 25) : [];
       aiidStatus = String(aiidResult?.status || 'unknown');
       aiidHttp = aiidResult?.http ?? null;
       aiidError = aiidResult?.error || null;
