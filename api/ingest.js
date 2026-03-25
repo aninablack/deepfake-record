@@ -657,7 +657,8 @@ async function fetchNewsDataArticles(queryOverride = null, sizeOverride = null) 
 
 function mapAiidRows(rows) {
   return rows.map((item) => {
-    const link = canonicalizeUrl(item?.url || item?.link || '');
+    const firstReport = Array.isArray(item?.reports) ? (item.reports[0] || {}) : {};
+    const link = canonicalizeUrl(firstReport?.url || item?.url || item?.link || '');
     const domain = (() => {
       try {
         return new URL(link).hostname.replace(/^www\./, '');
@@ -665,9 +666,10 @@ function mapAiidRows(rows) {
         return 'incidentdatabase.ai';
       }
     })();
-    const title = String(item?.title || item?.incident_title || '').trim();
-    const description = String(item?.description || item?.summary || item?.details || '').trim();
+    const title = String(firstReport?.title || item?.title || item?.incident_title || '').trim();
+    const description = String(firstReport?.description || item?.description || item?.summary || item?.details || '').trim();
     const seenDate = item?.date || item?.published_at || item?.created_at || null;
+    const socialImage = canonicalizeUrl(firstReport?.image_url || '') || null;
     return {
       title,
       url: link,
@@ -675,7 +677,7 @@ function mapAiidRows(rows) {
       domain,
       sourcecountry: null,
       language: 'en',
-      socialimage: null,
+      socialimage: socialImage,
       description,
       source_type: 'verified',
       source_priority_override: 'major_outlet',
@@ -797,27 +799,40 @@ async function fetchAiaaicIncidents() {
 }
 
 async function fetchAiidIncidents() {
-  const endpoint = 'https://incidentdatabase.ai/api/incidents?format=json&limit=25';
+  const endpoint = 'https://incidentdatabase.ai/api/graphql';
+  const query = `{
+    incidents(limit: 25, sort: {incident_id: DESC}) {
+      incident_id
+      title
+      date
+      reports {
+        url
+        title
+        description
+        source_domain
+        image_url
+      }
+    }
+  }`;
   try {
     const res = await fetch(endpoint, {
+      method: 'POST',
       headers: {
+        'content-type': 'application/json',
         accept: 'application/json',
         'user-agent': 'deepfake-record/1.0 (+https://deepfake-record.vercel.app)',
       },
+      body: JSON.stringify({ query }),
     });
     if (!res.ok) {
       const body = await res.text();
       return { records: [], status: 'http_error', http: res.status, error: body.slice(0, 240) };
     }
     const json = await res.json();
-    const rows = Array.isArray(json)
-      ? json
-      : Array.isArray(json?.incidents)
-        ? json.incidents
-        : Array.isArray(json?.results)
-          ? json.results
-          : [];
-    const records = mapAiidRows(rows).slice(0, 25);
+    const rows = Array.isArray(json?.data?.incidents) ? json.data.incidents : [];
+    const records = mapAiidRows(rows)
+      .filter((r) => String(r.title || '').trim() && String(r.url || '').trim())
+      .slice(0, 25);
     return { records, status: rows.length ? 'ok' : 'ok_zero_results', http: res.status, error: null };
   } catch {
     return { records: [], status: 'fetch_failed', http: null, error: null };
