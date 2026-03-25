@@ -753,10 +753,41 @@
       display: -webkit-box !important;
     }
     .df-masthead {
+      padding: 24px 32px;
       margin-bottom: 24px;
+    }
+    .df-hero {
+      padding: 24px 32px;
+    }
+    .df-hero-headline {
+      font-size: 64px;
     }
     .df-filters {
       padding: 8px 0;
+      overflow: visible;
+    }
+    .df-curate {
+      padding: 12px 0;
+      gap: 12px;
+      grid-template-columns: minmax(0, 1fr) 160px;
+      align-items: center;
+    }
+    .df-curate-head,
+    .df-curate-copy,
+    .df-curate-note,
+    .df-curate-status {
+      grid-column: 1 / -1;
+    }
+    .df-curate-input {
+      grid-column: 1;
+      width: 100%;
+    }
+    .df-curate-btn {
+      grid-column: 2;
+      width: 160px;
+    }
+    .df-curate-hint {
+      display: none;
     }
   }
 
