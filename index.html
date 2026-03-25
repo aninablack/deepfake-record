@@ -681,19 +681,19 @@
   .df-no-image-wrap {
     width: 100%;
     height: 100%;
-    padding: 14px 10px;
+    padding: 14px;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    justify-content: flex-start;
+    align-items: center;
+    justify-content: center;
     gap: 0;
-    text-align: left;
+    text-align: center;
   }
 
   .df-no-image-title {
     font-family: 'Playfair Display', serif;
-    font-size: 15px;
-    line-height: 1.1;
+    font-size: 18px;
+    line-height: 1.3;
     color: #111;
     max-width: 92%;
   }
@@ -931,7 +931,8 @@
       overflow: hidden;
       align-items: flex-start;
       justify-content: flex-start;
-      padding: 14px 10px;
+      text-align: left;
+      padding: 10px 12px 0 12px;
     }
     .df-no-image-title {
       font-size: 17px;
@@ -977,6 +978,9 @@
       font-weight: 500 !important;
       line-height: 1 !important;
     }
+    .df-card.df-card-fallback .df-card-title {
+      display: none !important;
+    }
   }
 
   /* Mobile fallback for devices reporting wider visual viewport (iOS Safari quirks) */
@@ -990,7 +994,7 @@
       line-height: 1.15 !important;
     }
     .df-curate-btn {
-      width: auto !important;
+      width: 100% !important;
       padding: 10px 20px !important;
       align-self: flex-start !important;
       justify-self: start !important;
@@ -1282,6 +1286,12 @@ function ratioFromType(type) {
   return '4/3';
 }
 
+function usesFallbackVisual(url) {
+  const normalized = String(url || '').trim();
+  if (!normalized || /^(null|undefined|none|n\/a)$/i.test(normalized)) return true;
+  return normalized.toLowerCase().includes('image.pollinations.ai');
+}
+
 function imageHtml(url, title, summary = '', category = '') {
   const safeTitle = safeText(title || '');
   const safeSummary = safeText(summary || '');
@@ -1383,6 +1393,7 @@ function handleImageError(imgEl) {
   fallback.className = 'df-no-image-wrap';
   fallback.innerHTML = `<div class="df-no-image-title">${title}</div>`;
   imgEl.parentNode.insertBefore(fallback, imgEl.nextSibling);
+  imgEl.closest('.df-card')?.classList.add('df-card-fallback');
   imgEl.remove();
 }
 
@@ -1567,7 +1578,7 @@ function renderGallery() {
   const categoryFiltered = filter === 'all' ? linkableCards : linkableCards.filter((c) => c.type === filter);
   const list = categoryFiltered.filter(matchesSearch);
   document.getElementById('gallery').innerHTML = list.map((c) => `
-    <div class="df-card" data-url="${safeText(c.articleUrl || c.claimUrl || '')}" data-title="${safeText(c.title || '')}" data-meta="${safeText(c.platform || '')}" data-summary="${safeText(c.summary || '')}">
+    <div class="df-card${(!String(c.imageUrl || '').trim() || String(c.imageUrl || '').toLowerCase().includes('pollinations')) ? ' df-card-fallback' : ''}" data-url="${safeText(c.articleUrl || c.claimUrl || '')}" data-title="${safeText(c.title || '')}" data-meta="${safeText(c.platform || '')}" data-summary="${safeText(c.summary || '')}">
       <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">
         ${imageHtml(c.imageUrl, c.title, c.summary, c.label)}
         ${c.imageUrl ? imageSourceBadge(c.source || '') : ''}
