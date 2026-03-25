@@ -601,7 +601,7 @@
     .df-card-link { font-size: 12px; }
     .df-no-image-wrap { overflow: hidden; }
     .df-no-image-title {
-      font-size: 12px;
+      font-size: 15px;
       line-height: 1.25;
       overflow: hidden;
       max-height: calc(1.25em * 5);
@@ -681,18 +681,18 @@
   .df-no-image-wrap {
     width: 100%;
     height: 100%;
-    padding: 14px;
+    padding: 14px 10px;
     display: flex;
     flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    align-items: flex-start;
+    justify-content: flex-start;
     gap: 0;
-    text-align: center;
+    text-align: left;
   }
 
   .df-no-image-title {
     font-family: 'Playfair Display', serif;
-    font-size: 24px;
+    font-size: 15px;
     line-height: 1.1;
     color: #111;
     max-width: 92%;
@@ -929,10 +929,12 @@
   @media (max-width: 768px) {
     .df-no-image-wrap {
       overflow: hidden;
-      padding: 8px;
+      align-items: flex-start;
+      justify-content: flex-start;
+      padding: 14px 10px;
     }
     .df-no-image-title {
-      font-size: 12px;
+      font-size: 17px;
       line-height: 1.2;
       max-height: calc(1.2em * 4);
       overflow: hidden;
@@ -994,6 +996,73 @@
       justify-self: start !important;
       display: inline-flex !important;
     }
+  }
+
+  .df-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease;
+    z-index: 1200;
+  }
+  .df-sheet-backdrop.open {
+    opacity: 1;
+    visibility: visible;
+  }
+  .df-article-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #fff;
+    border-top: 1px solid #ddd;
+    transform: translateY(104%);
+    transition: transform 0.24s ease;
+    z-index: 1201;
+    padding: 14px 14px calc(14px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.14);
+  }
+  .df-article-sheet.open {
+    transform: translateY(0);
+  }
+  .df-article-sheet-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 19px;
+    line-height: 1.2;
+    color: #111;
+    margin-bottom: 6px;
+  }
+  .df-article-sheet-meta {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 8px;
+  }
+  .df-article-sheet-summary {
+    font-size: 14px;
+    line-height: 1.45;
+    color: #222;
+    margin-bottom: 12px;
+  }
+  .df-article-sheet-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .df-sheet-btn {
+    appearance: none;
+    border: 1px solid #111;
+    background: #111;
+    color: #fff;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 10px 12px;
+    cursor: pointer;
+  }
+  .df-sheet-btn.secondary {
+    background: #fff;
+    color: #111;
   }
 </style>
  </head>
@@ -1121,6 +1190,16 @@
   </div>
 
 </div>
+<div class="df-sheet-backdrop" id="articleSheetBackdrop" aria-hidden="true"></div>
+<div class="df-article-sheet" id="articleSheet" role="dialog" aria-modal="true" aria-labelledby="articleSheetTitle" aria-hidden="true">
+  <div class="df-article-sheet-title" id="articleSheetTitle"></div>
+  <div class="df-article-sheet-meta" id="articleSheetMeta"></div>
+  <div class="df-article-sheet-summary" id="articleSheetSummary"></div>
+  <div class="df-article-sheet-actions">
+    <button class="df-sheet-btn" id="articleSheetOpenBtn" type="button">Read full article</button>
+    <button class="df-sheet-btn secondary" id="articleSheetCloseBtn" type="button">Close</button>
+  </div>
+</div>
 
 <script>
 if (!document.querySelector('meta[name="viewport"]')) {
@@ -1156,6 +1235,7 @@ let mode = 'live';
 let liveTotal = 0;
 let verifiedTotal = 0;
 let tickerInitialized = false;
+let activeArticleUrl = '';
 
 const typeToCardBadge = {
   political: 'df-badge-political',
@@ -1487,7 +1567,7 @@ function renderGallery() {
   const categoryFiltered = filter === 'all' ? linkableCards : linkableCards.filter((c) => c.type === filter);
   const list = categoryFiltered.filter(matchesSearch);
   document.getElementById('gallery').innerHTML = list.map((c) => `
-    <div class="df-card" data-url="${safeText(c.articleUrl || c.claimUrl || '')}">
+    <div class="df-card" data-url="${safeText(c.articleUrl || c.claimUrl || '')}" data-title="${safeText(c.title || '')}" data-meta="${safeText(c.platform || '')}" data-summary="${safeText(c.summary || '')}">
       <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">
         ${imageHtml(c.imageUrl, c.title, c.summary, c.label)}
         ${c.imageUrl ? imageSourceBadge(c.source || '') : ''}
@@ -1509,9 +1589,41 @@ function attachCardClicks() {
     const url = card.getAttribute('data-url');
     if (!url) return;
     card.addEventListener('click', () => {
-      window.open(url, '_blank', 'noopener,noreferrer');
+      const title = card.getAttribute('data-title') || 'Untitled incident';
+      const meta = card.getAttribute('data-meta') || '';
+      const summary = card.getAttribute('data-summary') || '';
+      openArticleSheet({ url, title, meta, summary });
     });
   });
+}
+
+function openArticleSheet({ url, title, meta, summary }) {
+  activeArticleUrl = String(url || '').trim();
+  const sheet = document.getElementById('articleSheet');
+  const backdrop = document.getElementById('articleSheetBackdrop');
+  if (!sheet || !backdrop || !activeArticleUrl) return;
+  document.getElementById('articleSheetTitle').textContent = title || 'Untitled incident';
+  document.getElementById('articleSheetMeta').textContent = meta || '';
+  document.getElementById('articleSheetSummary').textContent = String(summary || '').slice(0, 200) || 'No summary available.';
+  sheet.classList.add('open');
+  backdrop.classList.add('open');
+  sheet.setAttribute('aria-hidden', 'false');
+  backdrop.setAttribute('aria-hidden', 'false');
+}
+
+function closeArticleSheet() {
+  const sheet = document.getElementById('articleSheet');
+  const backdrop = document.getElementById('articleSheetBackdrop');
+  if (!sheet || !backdrop) return;
+  sheet.classList.remove('open');
+  backdrop.classList.remove('open');
+  sheet.setAttribute('aria-hidden', 'true');
+  backdrop.setAttribute('aria-hidden', 'true');
+}
+
+function openArticleInNewTab() {
+  if (!activeArticleUrl) return;
+  window.open(activeArticleUrl, '_blank', 'noopener,noreferrer');
 }
 
 function renderTicker() {
@@ -1698,6 +1810,12 @@ function updateHeroCounters() {
 renderGallery();
 renderTicker();
 document.getElementById('curateForm')?.addEventListener('submit', submitCuratedUrl);
+document.getElementById('articleSheetCloseBtn')?.addEventListener('click', closeArticleSheet);
+document.getElementById('articleSheetBackdrop')?.addEventListener('click', closeArticleSheet);
+document.getElementById('articleSheetOpenBtn')?.addEventListener('click', openArticleInNewTab);
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') closeArticleSheet();
+});
 setInterval(loadLiveData, 60000);
 loadLiveData();
 </script>
