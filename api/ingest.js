@@ -766,6 +766,18 @@ async function fetchAiaaicIncidents() {
     String(process.env.AIAAIC_CSV_URL || '').trim() ||
     String(process.env.AIAAIC_CSV_URL_FALLBACK || '').trim();
   if (!endpoint) return { records: [], status: 'missing_url', http: null, error: null };
+  const looksLikeCsvExport =
+    /\.csv(\?|$)/i.test(endpoint) ||
+    /[?&](format|output)=csv(&|$)/i.test(endpoint) ||
+    /\/export\?/i.test(endpoint);
+  if (!looksLikeCsvExport) {
+    return {
+      records: [],
+      status: 'invalid_csv_export_url',
+      http: null,
+      error: 'AIAAIC_CSV_URL must be a direct CSV export URL (not a sheet viewer URL).',
+    };
+  }
   try {
     const res = await fetch(endpoint, {
       headers: {
@@ -800,6 +812,9 @@ async function fetchAiaaicIncidents() {
 
 async function fetchAiidIncidents() {
   const endpoint = 'https://incidentdatabase.ai/api/graphql';
+  const aiidApiKey = String(process.env.AIID_API_KEY || '').trim();
+  const aiidOrigin = String(process.env.AIID_ORIGIN || 'https://deepfake-record.vercel.app').trim();
+  const aiidReferer = String(process.env.AIID_REFERER || `${aiidOrigin}/`).trim();
   const query = `{
     incidents(limit: 25, sort: {incident_id: DESC}) {
       incident_id
@@ -820,6 +835,9 @@ async function fetchAiidIncidents() {
       headers: {
         'content-type': 'application/json',
         accept: 'application/json',
+        origin: aiidOrigin,
+        referer: aiidReferer,
+        ...(aiidApiKey ? { authorization: `Bearer ${aiidApiKey}`, 'x-api-key': aiidApiKey } : {}),
         'user-agent': 'deepfake-record/1.0 (+https://deepfake-record.vercel.app)',
       },
       body: JSON.stringify({ query }),
