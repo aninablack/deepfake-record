@@ -523,10 +523,17 @@
   @media (max-width: 768px) {
     .df-gallery {
       columns: unset;
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
+      display: flex;
+      flex-direction: row;
       gap: 8px;
+      align-items: flex-start;
       padding: 14px 12px;
+    }
+    .df-gallery-col {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
     }
     .df-root { overflow-x: hidden; }
     .df-masthead {
@@ -1577,7 +1584,7 @@ function renderGallery() {
   const linkableCards = cards.filter((c) => !!String(c.articleUrl || c.claimUrl || '').trim());
   const categoryFiltered = filter === 'all' ? linkableCards : linkableCards.filter((c) => c.type === filter);
   const list = categoryFiltered.filter(matchesSearch);
-  document.getElementById('gallery').innerHTML = list.map((c) => `
+  const cardHtml = (c) => `
     <div class="df-card${(!String(c.imageUrl || '').trim() || String(c.imageUrl || '').toLowerCase().includes('pollinations')) ? ' df-card-fallback' : ''}" data-url="${safeText(c.articleUrl || c.claimUrl || '')}" data-title="${safeText(c.title || '')}" data-meta="${safeText(c.platform || '')}" data-summary="${safeText(c.summary || '')}">
       <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">
         ${imageHtml(c.imageUrl, c.title, c.summary, c.label)}
@@ -1588,7 +1595,20 @@ function renderGallery() {
         <div class="df-card-title" style="font-size:16px;line-height:1.4;font-weight:500;">${safeText(c.title)}</div>
         <div class="df-card-platform">${safeText(c.platform)}</div>
       </div>
-    </div>`).join('');
+    </div>`;
+  const galleryEl = document.getElementById('gallery');
+  const mobileMasonry = window.matchMedia('(max-width: 768px)').matches;
+  if (mobileMasonry) {
+    const leftCol = [];
+    const rightCol = [];
+    list.forEach((c, index) => {
+      if (index % 2 === 1) leftCol.push(cardHtml(c));
+      else rightCol.push(cardHtml(c));
+    });
+    galleryEl.innerHTML = `<div class="df-gallery-col">${leftCol.join('')}</div><div class="df-gallery-col">${rightCol.join('')}</div>`;
+  } else {
+    galleryEl.innerHTML = list.map(cardHtml).join('');
+  }
   attachImageFallbacks();
   attachCardClicks();
   updateHeroCounters();
