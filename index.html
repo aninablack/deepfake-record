@@ -1393,6 +1393,7 @@ function handleImageError(imgEl) {
   fallback.className = 'df-no-image-wrap';
   fallback.innerHTML = `<div class="df-no-image-title">${title}</div>`;
   imgEl.parentNode.insertBefore(fallback, imgEl.nextSibling);
+  imgEl.closest('.df-card')?.classList.add('df-card-fallback');
   imgEl.remove();
 }
 
