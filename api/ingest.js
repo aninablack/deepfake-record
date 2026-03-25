@@ -685,6 +685,115 @@ function mapAiidRows(rows) {
   });
 }
 
+function parseCsvRows(csvText) {
+  const input = String(csvText || '');
+  const rows = [];
+  let row = [];
+  let cell = '';
+  let inQuotes = false;
+  for (let i = 0; i < input.length; i += 1) {
+    const ch = input[i];
+    const next = input[i + 1];
+    if (inQuotes) {
+      if (ch === '"' && next === '"') {
+        cell += '"';
+        i += 1;
+      } else if (ch === '"') {
+        inQuotes = false;
+      } else {
+        cell += ch;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inQuotes = true;
+      continue;
+    }
+    if (ch === ',') {
+      row.push(cell);
+      cell = '';
+      continue;
+    }
+    if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && next === '\n') i += 1;
+      row.push(cell);
+      if (row.some((v) => String(v || '').trim() !== '')) rows.push(row);
+      row = [];
+      cell = '';
+      continue;
+    }
+    cell += ch;
+  }
+  row.push(cell);
+  if (row.some((v) => String(v || '').trim() !== '')) rows.push(row);
+  return rows;
+}
+
+function mapAiaaicRows(rows = []) {
+  return rows.map((item) => {
+    const title = String(item.title || item.incident_title || item.name || '').trim();
+    const description = String(item.description || item.summary || item.details || '').trim();
+    const url = canonicalizeUrl(item.url || item.link || item.source_url || item.reference || '');
+    const seendate = item.date || item.published_at || item.incident_date || item.created_at || null;
+    const domain = (() => {
+      try {
+        return new URL(url).hostname.replace(/^www\./, '');
+      } catch {
+        return 'aiincidents.com';
+      }
+    })();
+    return {
+      title,
+      url,
+      seendate,
+      domain,
+      sourcecountry: null,
+      language: 'en',
+      socialimage: null,
+      description,
+      source_type: 'verified',
+      source_priority_override: 'major_outlet',
+      claim_url: null,
+      ingest_source: 'aiaaic',
+    };
+  });
+}
+
+async function fetchAiaaicIncidents() {
+  const endpoint =
+    String(process.env.AIAAIC_CSV_URL || '').trim() ||
+    String(process.env.AIAAIC_CSV_URL_FALLBACK || '').trim();
+  if (!endpoint) return { records: [], status: 'missing_url', http: null, error: null };
+  try {
+    const res = await fetch(endpoint, {
+      headers: {
+        accept: 'text/csv,application/csv,text/plain;q=0.9,*/*;q=0.8',
+        'user-agent': 'deepfake-record/1.0 (+https://deepfake-record.vercel.app)',
+      },
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      return { records: [], status: 'http_error', http: res.status, error: body.slice(0, 240) };
+    }
+    const csvText = await res.text();
+    const parsedRows = parseCsvRows(csvText);
+    if (!parsedRows.length) return { records: [], status: 'ok_zero_results', http: res.status, error: null };
+    const headers = parsedRows[0].map((h) => String(h || '').trim().toLowerCase());
+    const bodyRows = parsedRows.slice(1).map((values) => {
+      const out = {};
+      headers.forEach((h, idx) => {
+        if (!h) return;
+        out[h] = values[idx];
+      });
+      return out;
+    });
+    const records = mapAiaaicRows(bodyRows).filter((r) => String(r.title || '').trim() && String(r.url || '').trim());
+    return { records, status: records.length ? 'ok' : 'ok_zero_results', http: res.status, error: null };
+  } catch {
+    return { records: [], status: 'fetch_failed', http: null, error: null };
+  }
+}
+
 async function fetchAiidIncidents() {
   const endpoint = 'https://incidentdatabase.ai/api/incidents?format=json&limit=10';
   try {
@@ -1258,6 +1367,10 @@ module.exports = async (_req, res) => {
     let aiidStatus = 'disabled';
     let aiidHttp = null;
     let aiidError = null;
+    let aiaaicRaw = [];
+    let aiaaicStatus = 'disabled';
+    let aiaaicHttp = null;
+    let aiaaicError = null;
     const redditRaw = [];
     const redditStatuses = [];
 
@@ -1336,7 +1449,20 @@ module.exports = async (_req, res) => {
       aiidError = null;
       warnings.push('AI Incident Database fetch failed; continuing with remaining sources.');
     }
-    const mergedRaw = [...raw, ...rssRaw, ...newsDataRaw, ...aiidRaw, ...redditRaw];
+    try {
+      const aiaaicResult = await fetchAiaaicIncidents();
+      aiaaicRaw = Array.isArray(aiaaicResult?.records) ? aiaaicResult.records : [];
+      aiaaicStatus = String(aiaaicResult?.status || 'unknown');
+      aiaaicHttp = aiaaicResult?.http ?? null;
+      aiaaicError = aiaaicResult?.error || null;
+    } catch {
+      aiaaicRaw = [];
+      aiaaicStatus = 'fetch_failed';
+      aiaaicHttp = null;
+      aiaaicError = null;
+      warnings.push('AIAAIC CSV fetch failed; continuing with remaining sources.');
+    }
+    const mergedRaw = [...raw, ...rssRaw, ...newsDataRaw, ...aiidRaw, ...aiaaicRaw, ...redditRaw];
     const dropCounters = {};
     const normalized = await Promise.all(
       mergedRaw.map((item, idx) => normalize(client, item, idx, dropCounters))
@@ -1389,6 +1515,10 @@ module.exports = async (_req, res) => {
       aiid_status: aiidStatus,
       aiid_http: aiidHttp,
       aiid_error: aiidError,
+      fetched_aiaaic: aiaaicRaw.length,
+      aiaaic_status: aiaaicStatus,
+      aiaaic_http: aiaaicHttp,
+      aiaaic_error: aiaaicError,
       fetched_reddit: redditRaw.length,
       reddit_statuses: redditStatuses,
       context_fetched: rawContext.length,
