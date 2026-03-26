@@ -61,6 +61,16 @@
     color: #111;
     font-weight: 500;
   }
+  .df-live-count {
+    display: none;
+    font-family: 'Playfair Display', serif;
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #111;
+    margin-left: 6px;
+    line-height: 1;
+  }
 
   .df-live-dot {
     width: 7px;
@@ -553,6 +563,12 @@
       white-space: nowrap;
       flex-shrink: 0;
       gap: 0;
+    }
+    .df-live-count {
+      display: inline-block;
+      font-size: 10px;
+      letter-spacing: 0.24em;
+      margin-left: 6px;
     }
     .df-hero { grid-template-columns: 1fr; gap: 8px; align-items: start; padding: 14px 14px 10px; }
     .df-hero-headline { font-size: 38px; line-height: 1.08; margin-top: 0; margin-bottom: 8px; }
@@ -1089,6 +1105,7 @@
     <div class="df-live-pill">
       <div class="df-live-dot"></div>
       Live feed
+      <span class="df-live-count" id="mobileLiveCount">0</span>
     </div>
   </div>
 
@@ -1847,8 +1864,10 @@ function updateHeroCounters() {
   const label = 'Incidents shown';
   const counterEl = document.getElementById('counter');
   const labelEl = document.getElementById('counterLabel');
+  const mobileCounterEl = document.getElementById('mobileLiveCount');
   if (counterEl) counterEl.textContent = (value || 0).toLocaleString();
   if (labelEl) labelEl.textContent = label;
+  if (mobileCounterEl) mobileCounterEl.textContent = (value || 0).toLocaleString();
 }
 
 renderGallery();
