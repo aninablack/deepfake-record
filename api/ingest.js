@@ -181,7 +181,7 @@ function inSourceList(source, list) {
 }
 
 function hasGeneralNewsStrongDeepfakeKeyword(text) {
-  return /\b(deepfake|deep fake|voice clone|cloned voice|synthetic media|fake video|fake audio|ai-generated image|ai generated image|ai-generated video|ai generated video|ai-generated|ai generated|manipulated video|manipulated image|non-consensual imagery|non-consensual|deepfake porn|fake nudes?|sexual deepfake|face swap|digital forgery|ai impersonation|impersonation scam)\b/i.test(
+  return /\b(deepfake|voice clone|synthetic media|fake video|fake image|fake nude|fake porn|ai-generated image|ai-generated video|non-consensual imagery|manipulated video|face swap|impersonation scam|digital replica|cloned voice|fake audio|sexual deepfake|ai disinformation|synthetic video|forged video|fabricated video|ai manipulation|ai-powered scam|generative ai fraud|ai impersonation)\b/i.test(
     String(text || '')
   );
 }
@@ -1202,9 +1202,11 @@ module.exports = async (_req, res) => {
     const client = getServiceClient();
     let raw = [];
     const warnings = [];
+    let gdeltPrimaryFailed = false;
     try {
       raw = await fetchGdelt();
     } catch (err) {
+      gdeltPrimaryFailed = true;
       const msg = String(err?.message || '').trim();
       if (msg.includes('GDELT request failed (429)')) {
         warnings.push('Primary GDELT feed rate-limited; run skipped safely.');
@@ -1263,11 +1265,29 @@ module.exports = async (_req, res) => {
         newsDataStatus = String(newsDataResult?.status || 'unknown');
         newsDataHttp = newsDataResult?.http ?? null;
         newsDataError = newsDataResult?.error || null;
-        const targetedQueries = [
-          'deepfake disinformation',
-          'AI video manipulation',
-          'synthetic media incident',
-        ];
+        const targetedQueries = gdeltPrimaryFailed
+          ? [
+              'deepfake fraud',
+              'fake video politics',
+              'voice clone scam',
+              'AI impersonation',
+              'synthetic media incident',
+              'deepfake disinformation',
+              'fake nude images',
+              'AI-generated fake',
+              'deepfake arrest',
+              'deepfake lawsuit',
+              'deepfake election',
+              'deepfake celebrity',
+              'deepfake pornography',
+              'voice cloning fraud',
+              'AI manipulation campaign',
+            ]
+          : [
+              'deepfake disinformation',
+              'AI video manipulation',
+              'synthetic media incident',
+            ];
         for (const q of targetedQueries) {
           try {
             const targeted = await fetchNewsDataArticles(q, 5);
