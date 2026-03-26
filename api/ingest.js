@@ -180,8 +180,15 @@ function inSourceList(source, list) {
   return list.some((d) => source.includes(String(d).toLowerCase()));
 }
 
+function hasGeneralNewsStrongDeepfakeKeyword(text) {
+  return /\b(deepfake|voice clone|synthetic media|fake video|ai-generated image|non-consensual imagery|manipulated video)\b/i.test(
+    String(text || '')
+  );
+}
+
 function passesTwoTierRelevance(article, title, summary, bodyText, sourceHint) {
   const source = sourceText(article);
+  const titleSummaryText = `${title || ''} ${summary || ''}`.trim();
   const titleSummaryScore = deepfakeRelevanceScore(
     title,
     summary,
@@ -197,7 +204,10 @@ function passesTwoTierRelevance(article, title, summary, bodyText, sourceHint) {
     return anywhereScore >= 1;
   }
   if (inSourceList(source, generalNewsSources)) {
-    return titleSummaryScore >= 2;
+    return (
+      titleSummaryScore >= 1 &&
+      hasGeneralNewsStrongDeepfakeKeyword(titleSummaryText)
+    );
   }
   return titleSummaryScore >= 2;
 }
