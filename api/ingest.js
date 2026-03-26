@@ -742,6 +742,80 @@ async function fetchNewsDataArticles(queryOverride = null, sizeOverride = null) 
   }
 }
 
+async function fetchGoogleFactCheckArticles() {
+  const apiKey = String(process.env.GOOGLE_FACTCHECK_API_KEY || '').trim();
+  if (!apiKey) return { records: [], status: 'missing_key', http: null, error: null };
+
+  const queries = ['deepfake', 'fake video', 'AI generated', 'synthetic media', 'voice clone'];
+  const endpoint = 'https://factchecktools.googleapis.com/v1alpha1/claims:search';
+  const all = [];
+  let status = 'ok';
+  let http = 200;
+  let error = null;
+
+  for (const q of queries) {
+    try {
+      const url = new URL(endpoint);
+      url.searchParams.set('query', q);
+      url.searchParams.set('key', apiKey);
+      url.searchParams.set('pageSize', '10');
+      const res = await fetch(url.toString(), {
+        headers: {
+          accept: 'application/json',
+          'user-agent': 'deepfake-record/1.0 (+https://deepfake-record.vercel.app)',
+        },
+      });
+      http = res.status;
+      if (!res.ok) {
+        const body = await res.text();
+        status = 'http_error';
+        error = body.slice(0, 240);
+        continue;
+      }
+      const json = await res.json();
+      const claims = Array.isArray(json?.claims) ? json.claims : [];
+      for (const claim of claims) {
+        const review = Array.isArray(claim?.claimReview) ? claim.claimReview[0] : null;
+        const articleUrl = canonicalizeUrl(review?.url || '') || null;
+        const sourceDomain = String(review?.publisher?.name || '').trim().toLowerCase() || 'factchecktools';
+        const title = String(claim?.text || '').trim();
+        if (!title) continue;
+        all.push({
+          title,
+          url: articleUrl,
+          seendate: claim?.claimDate || null,
+          domain: sourceDomain,
+          sourcecountry: null,
+          language: 'en',
+          socialimage: null,
+          description: '',
+          source_type: 'factcheck',
+          source_priority_override: 'factchecker',
+          claim_url: null,
+          ingest_source: 'factcheck',
+        });
+      }
+    } catch (e) {
+      status = 'fetch_failed';
+      error = String(e?.message || 'fetch failed');
+    }
+  }
+
+  const seen = new Set();
+  const records = all.filter((item) => {
+    const key =
+      canonicalizeUrl(item.url || '') ||
+      `${String(item.domain || '').toLowerCase()}|${String(item.title || '').toLowerCase()}`;
+    if (!key) return false;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 50);
+
+  if (status === 'ok' && records.length === 0) status = 'ok_zero_results';
+  return { records, status, http, error };
+}
+
 function utcDayRange(date = new Date()) {
   const d = new Date(date);
   const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
@@ -1263,6 +1337,10 @@ module.exports = async (_req, res) => {
     let newsDataStatus = 'disabled';
     let newsDataHttp = null;
     let newsDataError = null;
+    let factCheckRaw = [];
+    let factCheckStatus = 'disabled';
+    let factCheckHttp = null;
+    let factCheckError = null;
     const redditRaw = [];
     const redditStatuses = [];
 
@@ -1350,7 +1428,21 @@ module.exports = async (_req, res) => {
       newsDataError = null;
       warnings.push('NewsData fetch failed; continuing with remaining sources.');
     }
-    const mergedRaw = [...raw, ...rssRaw, ...newsDataRaw, ...redditRaw];
+    try {
+      const factCheckResult = await fetchGoogleFactCheckArticles();
+      factCheckRaw = Array.isArray(factCheckResult?.records) ? factCheckResult.records : [];
+      factCheckStatus = String(factCheckResult?.status || 'unknown');
+      factCheckHttp = factCheckResult?.http ?? null;
+      factCheckError = factCheckResult?.error || null;
+    } catch {
+      factCheckRaw = [];
+      factCheckStatus = 'fetch_failed';
+      factCheckHttp = null;
+      factCheckError = null;
+      warnings.push('Fact Check Tools fetch failed; continuing with remaining sources.');
+    }
+
+    const mergedRaw = [...raw, ...rssRaw, ...newsDataRaw, ...factCheckRaw, ...redditRaw];
     const dropCounters = {};
     const normalized = await Promise.all(
       mergedRaw.map((item, idx) => normalize(client, item, idx, dropCounters))
@@ -1399,6 +1491,10 @@ module.exports = async (_req, res) => {
       newsdata_status: newsDataStatus,
       newsdata_http: newsDataHttp,
       newsdata_error: newsDataError,
+      fetched_factcheck: factCheckRaw.length,
+      factcheck_status: factCheckStatus,
+      factcheck_http: factCheckHttp,
+      factcheck_error: factCheckError,
       fetched_reddit: redditRaw.length,
       reddit_statuses: redditStatuses,
       context_fetched: rawContext.length,
