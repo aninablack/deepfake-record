@@ -181,7 +181,7 @@ function inSourceList(source, list) {
 }
 
 function hasGeneralNewsStrongDeepfakeKeyword(text) {
-  return /\b(deepfake|voice clone|synthetic media|fake video|ai-generated image|non-consensual imagery|manipulated video)\b/i.test(
+  return /\b(deepfake|deep fake|voice clone|cloned voice|synthetic media|fake video|fake audio|ai-generated image|ai generated image|ai-generated video|ai generated video|ai-generated|ai generated|manipulated video|manipulated image|non-consensual imagery|non-consensual|deepfake porn|fake nudes?|sexual deepfake|face swap|digital forgery|ai impersonation|impersonation scam)\b/i.test(
     String(text || '')
   );
 }
