@@ -914,10 +914,11 @@ async function normalize(client, article, index, dropCounters = null) {
   const lowValueGuide = /(deepfakemaker|deepfake maker|how to|practical guide|guide to|tutorial|choosing the perfect|turn any clip|viral ai video|face swap)/i.test(
     `${title} ${description}`
   );
+  const strongDeepfakeKeywordInTitle = hasStrongDeepfakeSignal(title);
   const strongIncidentSignal = /(victim|victimized|lawsuit|sued|arrest|charged|jailed|banned|ban|removed|takedown|scam|fraud|impersonation|child porn|non-consensual)/i.test(
     `${title} ${description}`
   );
-  if (lowValueGuide && !strongIncidentSignal) {
+  if (lowValueGuide && !strongIncidentSignal && !strongDeepfakeKeywordInTitle) {
     bumpDrop(dropCounters, 'dropped_low_value_guide');
     return null;
   }
@@ -1318,7 +1319,8 @@ module.exports = async (_req, res) => {
               'AI video manipulation',
               'synthetic media incident',
             ];
-        for (const q of targetedQueries) {
+        const queryCap = gdeltPrimaryFailed ? 8 : 2;
+        for (const q of targetedQueries.slice(0, queryCap)) {
           try {
             const targeted = await fetchNewsDataArticles(q, 5);
             if (Array.isArray(targeted?.records) && targeted.records.length) {
