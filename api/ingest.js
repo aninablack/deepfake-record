@@ -119,6 +119,20 @@ const TRUSTED_DEEPFAKE_DOMAINS = [
   'therecord.media',
 ];
 
+const specialistSources = [
+  'bellingcat.com', 'dfrlab.org', 'bbcverify', 'leadstories.com',
+  'fullfact.org', 'politifact.com', '404media.co', 'therecord.media',
+  'cyberscoop.com', 'darkreading.com', 'propublica.org',
+  'theintercept.com', 'restofworld.org', 'krebsonsecurity.com'
+];
+
+const generalNewsSources = [
+  'bbc.com', 'bbc.co.uk', 'aljazeera.com', 'independent.co.uk',
+  'nbcnews.com', 'abcnews.go.com', 'thehill.com', 'axios.com',
+  'wired.com', 'theguardian.com', 'dw.com', 'france24.com',
+  'npr.org', 'techcrunch.com', 'theverge.com', 'arstechnica.com'
+];
+
 const RSS_USER_AGENTS = [
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -149,6 +163,43 @@ function passesStrictRelevance(article, title, description) {
   if (/(opinion|editorial)/i.test(title) && !titleSignal) return false;
 
   return true;
+}
+
+function sourceText(article) {
+  return [
+    article.domain || '',
+    article.source_domain || '',
+    article.url || '',
+    article.article_url || '',
+  ]
+    .join(' ')
+    .toLowerCase();
+}
+
+function inSourceList(source, list) {
+  return list.some((d) => source.includes(String(d).toLowerCase()));
+}
+
+function passesTwoTierRelevance(article, title, summary, bodyText, sourceHint) {
+  const source = sourceText(article);
+  const titleSummaryScore = deepfakeRelevanceScore(
+    title,
+    summary,
+    sourceHint || source
+  );
+  const anywhereScore = deepfakeRelevanceScore(
+    title,
+    `${summary || ''} ${bodyText || ''}`.trim(),
+    sourceHint || source
+  );
+
+  if (inSourceList(source, specialistSources)) {
+    return anywhereScore >= 1;
+  }
+  if (inSourceList(source, generalNewsSources)) {
+    return titleSummaryScore >= 2;
+  }
+  return titleSummaryScore >= 2;
 }
 
 function decodeXmlEntities(text) {
@@ -897,44 +948,20 @@ async function normalize(client, article, index, dropCounters = null) {
       (hasTrustedAiAnchor && hasTrustedAiRisk) ||
       hasTrustedManipulationOnly
     );
-  const trustedRelevanceDomains = [
-    'bbc.co.uk',
-    'bbc.com',
-    'independent.co.uk',
-    'theguardian.com',
-    'reuters.com',
-    'ft.com',
-    'foreignpolicy.com',
-    'france24.com',
-    'aljazeera.com',
-    'dw.com',
-    'npr.org',
-    'axios.com',
-    'wired.com',
-    'nbcnews.com',
-    'abcnews.go.com',
-    'thehill.com',
-  ];
-  const minScore = trustedRelevanceDomains.some((d) => trustedMatchText.includes(d)) ? 1 : 2;
-  const isTrustedSource = trustedDomains.some((d) => String(article.domain || '').toLowerCase().includes(d));
   const fullText = `${title} ${relevanceSummary} ${article.url || ''}`;
   const relevanceScore = deepfakeRelevanceScore(title, relevanceSummary, sourceHint);
-  const trustedSignalPass =
-    isTrustedSource &&
-    (hasStrongDeepfakeSignal(fullText) ||
-      relevanceScore >= minScore ||
-      isDeepfakeRelevant(fullText, trustedMatchText));
-  const factcheckCandidate =
-    isFactcheck && (relevanceScore >= 1 || hasStrongDeepfakeSignal(fullText));
-  if (!trustedSignalPass && !trustedAiRelaxPass && !isFactcheck && !isDeepfakeRelevant(fullText, trustedMatchText)) {
+  const twoTierPass = passesTwoTierRelevance(article, title, description, relevanceSummary, sourceHint);
+  if (!twoTierPass) {
     bumpDrop(dropCounters, 'dropped_not_deepfake_relevant');
     return null;
   }
-  if (!trustedSignalPass && isFactcheck && !factcheckCandidate) {
+  const factcheckCandidate =
+    isFactcheck && (relevanceScore >= 1 || hasStrongDeepfakeSignal(fullText));
+  if (isFactcheck && !factcheckCandidate) {
     bumpDrop(dropCounters, 'dropped_factcheck_candidate');
     return null;
   }
-  if (!trustedSignalPass && !trustedAiRelaxPass && !passesStrictRelevance(article, title, relevanceSummary)) {
+  if (!passesStrictRelevance(article, title, description)) {
     bumpDrop(dropCounters, 'dropped_strict_relevance');
     return null;
   }
@@ -946,11 +973,11 @@ async function normalize(client, article, index, dropCounters = null) {
     return null;
   }
   // Fact-check sources are already curated; avoid over-pruning due to softer wording.
-  if (!trustedSignalPass && isFactcheck && relevanceScore < 1) {
+  if (isFactcheck && relevanceScore < 1) {
     bumpDrop(dropCounters, 'dropped_factcheck_relevance_floor');
     return null;
   }
-  if (!trustedSignalPass && !trustedAiRelaxPass && !isFactcheck && isContextOnlyArticle(`${title} ${relevanceSummary} ${article.url || ''}`)) {
+  if (!isFactcheck && isContextOnlyArticle(`${title} ${relevanceSummary} ${article.url || ''}`)) {
     bumpDrop(dropCounters, 'dropped_context_only');
     return null;
   }
