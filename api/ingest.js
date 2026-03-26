@@ -133,6 +133,21 @@ const generalNewsSources = [
   'npr.org', 'techcrunch.com', 'theverge.com', 'arstechnica.com'
 ];
 
+const highNoiseFeeds = [
+  'feeds.bbci.co.uk/news/rss.xml',
+  'feeds.bbci.co.uk/news/world/rss.xml',
+  'feeds.bbci.co.uk/news/uk/rss.xml',
+  'www.axios.com/feeds/feed.rss',
+  'thehill.com/feed/',
+  'abcnews.go.com/abcnews/topstories',
+  'feeds.nbcnews.com/nbcnews/public/news',
+  'rss.dw.com/rdf/rss-en-all',
+  'www.france24.com/en/rss',
+  'www.aljazeera.com/xml/rss/all.xml',
+  'feeds.npr.org/1001/rss.xml',
+  'www.independent.co.uk/news/uk/rss',
+];
+
 const RSS_USER_AGENTS = [
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -571,8 +586,14 @@ async function resolveGooglePublisherUrl(url, candidateLinks = []) {
   return input;
 }
 
-async function fetchRssArticles() {
-  const feeds = rotateFeedsForRun(splitCsv(config.rssFeeds));
+async function fetchRssArticles(options = {}) {
+  const skipFeeds = Array.isArray(options.skipFeeds) ? options.skipFeeds : [];
+  const shouldSkip = (feedUrl) =>
+    skipFeeds.some((needle) =>
+      String(feedUrl || '').toLowerCase().includes(String(needle || '').toLowerCase())
+    );
+  const allFeeds = rotateFeedsForRun(splitCsv(config.rssFeeds));
+  const feeds = allFeeds.filter((feedUrl) => !shouldSkip(feedUrl));
   const records = [];
   const feedStats = [];
   for (const feedUrl of feeds) {
@@ -635,7 +656,12 @@ async function fetchRssArticles() {
       feedStats.push({ feed: feedUrl, status, http, fetched_items: 0 });
     }
   }
-  return { records, feed_count: feeds.length, feed_stats: feedStats };
+  return {
+    records,
+    feed_count: feeds.length,
+    feed_stats: feedStats,
+    skipped_feeds_count: allFeeds.length - feeds.length,
+  };
 }
 
 function mapNewsDataRows(rows) {
@@ -1231,6 +1257,7 @@ module.exports = async (_req, res) => {
     let rssRaw = [];
     let rssFeedCount = 0;
     let rssFeedStats = [];
+    let gdeltFailedFeedsSkipped = false;
     let newsDataRaw = [];
     let newsDataStatus = 'disabled';
     let newsDataHttp = null;
@@ -1247,7 +1274,10 @@ module.exports = async (_req, res) => {
       }
     }
     try {
-      const rssResult = await fetchRssArticles();
+      gdeltFailedFeedsSkipped = Boolean(gdeltPrimaryFailed);
+      const rssResult = await fetchRssArticles({
+        skipFeeds: gdeltPrimaryFailed ? highNoiseFeeds : [],
+      });
       rssRaw = Array.isArray(rssResult?.records) ? rssResult.records : [];
       rssFeedCount = Number(rssResult?.feed_count || 0);
       rssFeedStats = Array.isArray(rssResult?.feed_stats) ? rssResult.feed_stats : [];
@@ -1372,6 +1402,7 @@ module.exports = async (_req, res) => {
       context_fetched: rawContext.length,
       context_upserted: contextResult.inserted,
       archived_events_logged: eventsResult.inserted || 0,
+      gdelt_failed_feeds_skipped: gdeltFailedFeedsSkipped,
       dropped: dropCounters,
       warning: warnings.length ? warnings.join(' ') : null,
       at: new Date().toISOString(),
