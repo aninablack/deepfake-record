@@ -49,6 +49,10 @@ function hasDeepfakeSignal(text) {
   );
 }
 
+function isRoundupSummary(text) {
+  return /\b(press review|papers discuss|next:|finally,|staying with ai|what we heard)\b/i.test(String(text || ""));
+}
+
 function normalizeTitle(title) {
   return String(title || "")
     .toLowerCase()
@@ -212,8 +216,8 @@ function dedupeAndFilter(rows) {
       String(row.category || "").toLowerCase() === "audio" ||
       /voice clone|audio deepfake|synthetic voice/i.test(String(row.category_label || ""));
     const hasTitleUrlSignal = hasDeepfakeSignal(titleUrlHay);
-    // Guard against multi-topic roundups where summary mentions deepfakes but the story itself is unrelated.
-    if (sourceType === "news" && !hasTitleUrlSignal && !isAudioTagged) continue;
+    // Drop only likely roundup/recap items where deepfake appears in summary context but not in the actual story title/url.
+    if (sourceType === "news" && !hasTitleUrlSignal && isRoundupSummary(row.summary) && !isAudioTagged) continue;
     // Curated RSS/fact-check rows can be relevant even when titles avoid deepfake wording.
     if (!hasDeepfakeSignal(hay) && !isAudioTagged && sourceType !== "factcheck") continue;
     const urlKey = canonicalUrl(row.article_url);

@@ -7,6 +7,10 @@ function hasDeepfakeSignal(text) {
   );
 }
 
+function isRoundupSummary(text) {
+  return /\b(press review|papers discuss|next:|finally,|staying with ai|what we heard)\b/i.test(String(text || ""));
+}
+
 function isLowValueGuideRow(row) {
   const t = `${row.title || ""} ${row.summary || ""}`.toLowerCase();
   const guidePattern =
@@ -30,7 +34,7 @@ function shouldDelete(row) {
   if (isAudioTagged(row)) return false;
   const hay = `${row.title || ""} ${row.summary || ""} ${row.article_url || ""} ${row.claim_url || ""}`;
   const titleUrlHay = `${row.title || ""} ${row.article_url || ""} ${row.claim_url || ""}`;
-  if (sourceType === "news" && !hasDeepfakeSignal(titleUrlHay)) return true;
+  if (sourceType === "news" && !hasDeepfakeSignal(titleUrlHay) && isRoundupSummary(row.summary)) return true;
   return !hasDeepfakeSignal(hay);
 }
 
