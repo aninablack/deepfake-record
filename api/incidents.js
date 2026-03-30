@@ -205,11 +205,15 @@ function dedupeAndFilter(rows) {
     if (blockedDomains.has(domain)) continue;
     const sourceType = String(row.source_type || "").toLowerCase();
     const claimUrl = String(row.claim_url || "").trim();
+    const titleUrlHay = `${row.title || ""} ${row.article_url || ""} ${claimUrl}`;
     const homepageOnly = isHomepageLikeUrl(row.article_url);
     const unresolvedHomepage = homepageOnly && (!claimUrl || isHomepageLikeUrl(claimUrl));
     const isAudioTagged =
       String(row.category || "").toLowerCase() === "audio" ||
       /voice clone|audio deepfake|synthetic voice/i.test(String(row.category_label || ""));
+    const hasTitleUrlSignal = hasDeepfakeSignal(titleUrlHay);
+    // Guard against multi-topic roundups where summary mentions deepfakes but the story itself is unrelated.
+    if (sourceType === "news" && !hasTitleUrlSignal && !isAudioTagged) continue;
     // Curated RSS/fact-check rows can be relevant even when titles avoid deepfake wording.
     if (!hasDeepfakeSignal(hay) && !isAudioTagged && sourceType !== "factcheck") continue;
     const urlKey = canonicalUrl(row.article_url);
@@ -545,10 +549,9 @@ module.exports = async (req, res) => {
     const data = [...(factcheckData || []), ...(nonGoogleData || []), ...(googleData || []), ...fallbackRows];
 
     const uniqueById = Array.from(new Map((data || []).map((row) => [String(row.id || row.source_id || Math.random()), row])).values());
-    const linkable = uniqueById
-      .filter((row) => !!String(row.article_url || row.claim_url || "").trim())
-      .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
-      .slice(0, limit);
+    const filtered = dedupeAndFilter(uniqueById);
+    const rebalanced = rebalanceSources(filtered, limit);
+    const linkable = rebalanced.filter((row) => !!String(row.article_url || row.claim_url || "").trim());
     const clean = linkable.map((row) => ({ ...row, ingest_source: deriveIngestSource(row) }));
     res.status(200).json({ ok: true, incidents: clean });
   } catch (error) {
