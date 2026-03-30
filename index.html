@@ -1343,13 +1343,15 @@ function imageHtml(url, title, summary = '', category = '') {
   const safeSummary = safeText(summary || '');
   const safeCategory = safeText(category || '');
   const normalizedUrl = String(url || '').trim();
+  const isFallbackVisual = usesFallbackVisual(normalizedUrl);
   const hasSourceImage =
     normalizedUrl &&
     !/^(null|undefined|none|n\/a)$/i.test(normalizedUrl) &&
-    !isLikelyLogoImage(normalizedUrl);
+    !isLikelyLogoImage(normalizedUrl) &&
+    !isFallbackVisual;
+  // Product rule: when image is missing or illustrative/pollinations, show text-title fallback (not generated art).
   if (!hasSourceImage) {
-    const fallbackSrc = categoryIllustrationImage(category);
-    return `<img src="${safeText(fallbackSrc)}" alt="Incident illustration" data-fallback-title="${safeTitle}" data-fallback-summary="${safeSummary}" data-fallback-category="${safeCategory}" data-image-origin="illustrative" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"/>`;
+    return `<div class="df-no-image-wrap"><div class="df-no-image-title">${safeTitle || 'Preview unavailable'}</div></div>`;
   }
   const source = proxiedImageUrl(normalizedUrl);
   return `<img src="${safeText(source)}" alt="Incident image" data-fallback-title="${safeTitle}" data-fallback-summary="${safeSummary}" data-fallback-category="${safeCategory}" data-image-origin="documented" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"/>`;
@@ -1627,7 +1629,7 @@ function renderGallery() {
     <div class="df-card${(!String(c.imageUrl || '').trim() || String(c.imageUrl || '').toLowerCase().includes('pollinations')) ? ' df-card-fallback' : ''}" data-url="${safeText(c.articleUrl || c.claimUrl || '')}" data-title="${safeText(c.title || '')}" data-meta="${safeText(c.platform || '')}" data-summary="${safeText(c.summary || '')}">
       <div class="df-card-img" style="--ratio:${c.ratio};background:${c.color};">
         ${imageHtml(c.imageUrl, c.title, c.summary, c.label)}
-        ${c.imageUrl ? imageSourceBadge(c.source || '') : ''}
+        ${(c.imageUrl && !usesFallbackVisual(c.imageUrl)) ? imageSourceBadge(c.source || '') : ''}
       </div>
       <div class="df-card-meta">
         <div class="df-card-type">${safeText(c.label)}</div>
