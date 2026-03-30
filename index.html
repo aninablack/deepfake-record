@@ -1429,19 +1429,15 @@ function categoryIllustrationImage(category) {
 function handleImageError(imgEl) {
   if (!imgEl || !imgEl.parentNode) return;
   const title = imgEl.getAttribute('data-fallback-title') || '';
-  const summary = imgEl.getAttribute('data-fallback-summary') || '';
-  const category = imgEl.getAttribute('data-fallback-category') || '';
-  if (imgEl.dataset.retried !== '1') {
-    imgEl.dataset.retried = '1';
-    imgEl.src = categoryIllustrationImage(category);
-    imgEl.dataset.imageOrigin = 'illustrative';
-    return;
-  }
+  const card = imgEl.closest('.df-card');
+  const imageWrap = imgEl.parentNode;
   const fallback = document.createElement('div');
   fallback.className = 'df-no-image-wrap';
   fallback.innerHTML = `<div class="df-no-image-title">${safeText(title || 'Preview unavailable')}</div>`;
-  imgEl.parentNode.insertBefore(fallback, imgEl.nextSibling);
-  imgEl.closest('.df-card')?.classList.add('df-card-fallback');
+  imageWrap.insertBefore(fallback, imgEl.nextSibling);
+  // If a source image fails, enforce product rule: text-title fallback only.
+  imageWrap.querySelectorAll('.df-image-source-badge').forEach((el) => el.remove());
+  card?.classList.add('df-card-fallback');
   imgEl.remove();
 }
 
