@@ -492,6 +492,7 @@ module.exports = async (req, res) => {
     const nonGoogleReq = client
       .from("incidents")
       .select(selectFields)
+      .eq("status", "reported_as_synthetic")
       .not("source_domain", "ilike", "%google.com%")
       .gte("published_at", ageCutoffIso)
       .order("published_at", { ascending: false })
@@ -500,6 +501,7 @@ module.exports = async (req, res) => {
     const googleReq = client
       .from("incidents")
       .select(selectFields)
+      .eq("status", "reported_as_synthetic")
       .ilike("source_domain", "%google.com%")
       .gte("published_at", ageCutoffIso)
       .order("published_at", { ascending: false })
@@ -508,6 +510,7 @@ module.exports = async (req, res) => {
     const factcheckReq = client
       .from("incidents")
       .select(selectFields)
+      .eq("status", "reported_as_synthetic")
       .eq("source_type", "factcheck")
       .not("source_domain", "ilike", "%google.com%")
       .gte("published_at", ageCutoffIso)
@@ -530,6 +533,7 @@ module.exports = async (req, res) => {
       let q = client
         .from("incidents")
         .select(selectFields)
+        .eq("status", "reported_as_synthetic")
         .gte("published_at", ageCutoffIso)
         .order("published_at", { ascending: false })
         .limit(1);

@@ -1253,6 +1253,83 @@ async function upsertIncidents(client, incidents) {
   return { inserted: incidents.length };
 }
 
+async function insertPendingOnly(client, incidents) {
+  if (!Array.isArray(incidents) || incidents.length === 0) return { inserted: 0, skipped_existing: 0 };
+  const keys = Array.from(new Set(incidents.map((i) => String(i.source_id || '').trim()).filter(Boolean)));
+  const existing = new Set();
+  const chunkSize = 200;
+  for (let i = 0; i < keys.length; i += chunkSize) {
+    const chunk = keys.slice(i, i + chunkSize);
+    const { data, error } = await client.from('incidents').select('source_id').in('source_id', chunk);
+    if (error) throw error;
+    for (const row of (data || [])) {
+      if (row?.source_id) existing.add(String(row.source_id));
+    }
+  }
+  const toInsert = incidents.filter((i) => !existing.has(String(i.source_id || '')));
+  if (!toInsert.length) return { inserted: 0, skipped_existing: incidents.length };
+  const { error } = await client.from('incidents').insert(toInsert);
+  if (error) throw error;
+  return { inserted: toInsert.length, skipped_existing: incidents.length - toInsert.length };
+}
+
+function hasDeepfakeSignal(text) {
+  return /(deepfake|deep fake|voice clone|cloned voice|vocal clone|synthetic voice|voice deepfake|audio deepfake|fake audio|fake video|face swap|synthetic media|ai impersonation|ai song|ai[- ]generated song|soundalike|mimic(?:ked|ry)? voice|ai porn|non-consensual|digital forgery|manipulated media)/i.test(
+    String(text || '')
+  );
+}
+
+function evaluateIngestGate({ fetched, normalizedKept, deduped, incidents }) {
+  const minFetched = Math.max(1, Number(process.env.MIN_FETCHED_PER_INGEST || 300));
+  const minNormalizedKept = Math.max(1, Number(process.env.MIN_NORMALIZED_KEPT_PER_INGEST || 15));
+  const minDeduped = Math.max(1, Number(process.env.MIN_DEDUPED_PER_INGEST || 8));
+  const freshnessWindowHours = Math.max(1, Number(process.env.FRESHNESS_WINDOW_HOURS || 24));
+  const maxSampleOfftopic = Math.max(0, Number(process.env.MAX_SAMPLE_OFFTOPIC || 2));
+  const nowMs = Date.now();
+  const freshnessMs = freshnessWindowHours * 60 * 60 * 1000;
+  const recentInBatch = (incidents || []).some((i) => {
+    const t = new Date(i.published_at || 0).getTime();
+    return Number.isFinite(t) && (nowMs - t) <= freshnessMs;
+  });
+  const sample = [...(incidents || [])]
+    .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
+    .slice(0, 20);
+  const sampleOfftopic = sample.filter((i) => {
+    const sourceType = String(i.source_type || '').toLowerCase();
+    if (sourceType === 'factcheck' || sourceType === 'social_report' || sourceType === 'community') return false;
+    const hay = `${i.title || ''} ${i.article_url || ''} ${i.claim_url || ''}`;
+    return !hasDeepfakeSignal(hay);
+  }).length;
+
+  const checks = {
+    quantity_fetched: fetched >= minFetched,
+    quantity_normalized: normalizedKept >= minNormalizedKept,
+    quantity_deduped: deduped >= minDeduped,
+    freshness_recent_incident: recentInBatch,
+    quality_sample_offtopic: sampleOfftopic <= maxSampleOfftopic,
+  };
+  const failed = Object.entries(checks).filter(([, ok]) => !ok).map(([k]) => k);
+  return {
+    pass: failed.length === 0,
+    failed_checks: failed,
+    thresholds: {
+      min_fetched: minFetched,
+      min_normalized_kept: minNormalizedKept,
+      min_deduped: minDeduped,
+      freshness_window_hours: freshnessWindowHours,
+      max_sample_offtopic: maxSampleOfftopic,
+    },
+    metrics: {
+      fetched,
+      normalized_kept: normalizedKept,
+      deduped,
+      sample_size: sample.length,
+      sample_offtopic: sampleOfftopic,
+      recent_in_batch: recentInBatch,
+    },
+  };
+}
+
 async function upsertContextArticles(client, articles) {
   if (articles.length === 0) return { inserted: 0 };
   const { error } = await client.from('context_articles').upsert(articles, { onConflict: 'source_id' });
@@ -1470,10 +1547,24 @@ module.exports = async (_req, res) => {
         published_at: publishedAt,
       };
     }));
-    const result = await upsertIncidents(client, incidents);
-    await dedupeSimilarIncidents(client);
+    const gate = evaluateIngestGate({
+      fetched: mergedRaw.length,
+      normalizedKept: normalizedKept.length,
+      deduped: deduped.length,
+      incidents,
+    });
+    const publishStatus = gate.pass ? 'reported_as_synthetic' : 'pending_review';
+    const gatedIncidents = incidents.map((i) => ({ ...i, status: publishStatus }));
+    const result = gate.pass
+      ? await upsertIncidents(client, gatedIncidents)
+      : await insertPendingOnly(client, gatedIncidents);
+    if (gate.pass) {
+      await dedupeSimilarIncidents(client);
+    } else {
+      warnings.push(`Publish gate failed (${gate.failed_checks.join(', ')}). New rows inserted as pending_review only; live feed unchanged.`);
+    }
     const contextResult = await upsertContextArticles(client, contextArticles);
-    const eventsResult = await logIncidentEvents(client, incidents);
+    const eventsResult = await logIncidentEvents(client, gatedIncidents);
     await logIngestRun(client, mergedRaw.length, result.inserted);
     res.status(200).json({
       ok: true,
@@ -1483,6 +1574,8 @@ module.exports = async (_req, res) => {
       deduped: deduped.length,
       balanced: incidents.length,
       upserted: result.inserted,
+      published_status: publishStatus,
+      publish_gate: gate,
       fetched_gdelt: raw.length,
       fetched_rss: rssRaw.length,
       fetched_rss_feeds: rssFeedCount,
