@@ -1348,7 +1348,7 @@ function imageHtml(url, title, summary = '', category = '') {
     !/^(null|undefined|none|n\/a)$/i.test(normalizedUrl) &&
     !isLikelyLogoImage(normalizedUrl);
   if (!hasSourceImage) {
-    const fallbackSrc = generatedFallbackImageFromContext(title, summary, category);
+    const fallbackSrc = categoryIllustrationImage(category);
     return `<img src="${safeText(fallbackSrc)}" alt="Incident illustration" data-fallback-title="${safeTitle}" data-fallback-summary="${safeSummary}" data-fallback-category="${safeCategory}" data-image-origin="illustrative" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;"/>`;
   }
   const source = proxiedImageUrl(normalizedUrl);
@@ -1431,13 +1431,13 @@ function handleImageError(imgEl) {
   const category = imgEl.getAttribute('data-fallback-category') || '';
   if (imgEl.dataset.retried !== '1') {
     imgEl.dataset.retried = '1';
-    imgEl.src = generatedFallbackImageFromContext(title, summary, category);
+    imgEl.src = categoryIllustrationImage(category);
     imgEl.dataset.imageOrigin = 'illustrative';
     return;
   }
   const fallback = document.createElement('div');
   fallback.className = 'df-no-image-wrap';
-  fallback.innerHTML = `<div class="df-no-image-title">${title}</div>`;
+  fallback.innerHTML = `<div class="df-no-image-title">${safeText(title || 'Preview unavailable')}</div>`;
   imgEl.parentNode.insertBefore(fallback, imgEl.nextSibling);
   imgEl.closest('.df-card')?.classList.add('df-card-fallback');
   imgEl.remove();
