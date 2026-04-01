@@ -1284,7 +1284,7 @@ function evaluateIngestGate({ fetched, normalizedKept, deduped, incidents }) {
   const minNormalizedKept = Math.max(1, Number(process.env.MIN_NORMALIZED_KEPT_PER_INGEST || 15));
   const minDeduped = Math.max(1, Number(process.env.MIN_DEDUPED_PER_INGEST || 8));
   const freshnessWindowHours = Math.max(1, Number(process.env.FRESHNESS_WINDOW_HOURS || 24));
-  const maxSampleOfftopic = Math.max(0, Number(process.env.MAX_SAMPLE_OFFTOPIC || 2));
+  const maxSampleOfftopic = Math.max(0, Number(process.env.MAX_SAMPLE_OFFTOPIC || 5));
   const nowMs = Date.now();
   const freshnessMs = freshnessWindowHours * 60 * 60 * 1000;
   const recentInBatch = (incidents || []).some((i) => {
@@ -1294,12 +1294,22 @@ function evaluateIngestGate({ fetched, normalizedKept, deduped, incidents }) {
   const sample = [...(incidents || [])]
     .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
     .slice(0, 20);
-  const sampleOfftopic = sample.filter((i) => {
+  const sampleOfftopicRows = sample.filter((i) => {
     const sourceType = String(i.source_type || '').toLowerCase();
     if (sourceType === 'factcheck' || sourceType === 'social_report' || sourceType === 'community') return false;
     const hay = `${i.title || ''} ${i.article_url || ''} ${i.claim_url || ''}`;
     return !hasDeepfakeSignal(hay);
-  }).length;
+  });
+  const sampleOfftopic = sampleOfftopicRows.length;
+  const sampleOfftopicItems = sampleOfftopicRows.map((i) => ({
+    title: i.title || null,
+    source_type: i.source_type || null,
+    source_domain: i.source_domain || null,
+    article_url: i.article_url || null,
+    claim_url: i.claim_url || null,
+    published_at: i.published_at || null,
+    reason: 'missing_deepfake_signal_in_title_or_url',
+  }));
 
   const checks = {
     quantity_fetched: fetched >= minFetched,
@@ -1326,6 +1336,7 @@ function evaluateIngestGate({ fetched, normalizedKept, deduped, incidents }) {
       sample_size: sample.length,
       sample_offtopic: sampleOfftopic,
       recent_in_batch: recentInBatch,
+      sample_offtopic_items: sampleOfftopicItems,
     },
   };
 }

@@ -479,6 +479,7 @@ function rebalanceSources(rows, limit) {
 
 module.exports = async (req, res) => {
   try {
+    res.setHeader("Cache-Control", "no-store, max-age=0");
     const limit = Math.min(Number(req.query.limit || 300), 1200);
     const maxAgeDays = Math.max(1, Number(process.env.MAX_ARTICLE_AGE_DAYS || 30));
     const ageCutoffIso = new Date(Date.now() - maxAgeDays * 24 * 60 * 60 * 1000).toISOString();
@@ -542,7 +543,7 @@ module.exports = async (req, res) => {
       return q;
     });
 
-    const [{ data: nonGoogleData, error: nonGoogleError }, { data: googleData, error: googleError }, { data: factcheckData, error: factcheckError }, ...fallbackResults] = await Promise.all([
+    let [{ data: nonGoogleData, error: nonGoogleError }, { data: googleData, error: googleError }, { data: factcheckData, error: factcheckError }, ...fallbackResults] = await Promise.all([
       nonGoogleReq,
       googleReq,
       factcheckReq,
@@ -554,7 +555,38 @@ module.exports = async (req, res) => {
     if (factcheckError) throw factcheckError;
 
     const fallbackRows = fallbackResults.flatMap((r) => (r && !r.error && Array.isArray(r.data) ? r.data : []));
-    const data = [...(factcheckData || []), ...(nonGoogleData || []), ...(googleData || []), ...fallbackRows];
+    let data = [...(factcheckData || []), ...(nonGoogleData || []), ...(googleData || []), ...fallbackRows];
+
+    // If strict freshness filtering yields no rows, fall back to all-time published incidents.
+    if (!data.length) {
+      const nonGoogleReqAll = client
+        .from("incidents")
+        .select(selectFields)
+        .eq("status", "reported_as_synthetic")
+        .not("source_domain", "ilike", "%google.com%")
+        .order("published_at", { ascending: false })
+        .limit(nonGooglePoolLimit);
+      const googleReqAll = client
+        .from("incidents")
+        .select(selectFields)
+        .eq("status", "reported_as_synthetic")
+        .ilike("source_domain", "%google.com%")
+        .order("published_at", { ascending: false })
+        .limit(googlePoolLimit);
+      const factcheckReqAll = client
+        .from("incidents")
+        .select(selectFields)
+        .eq("status", "reported_as_synthetic")
+        .eq("source_type", "factcheck")
+        .not("source_domain", "ilike", "%google.com%")
+        .order("published_at", { ascending: false })
+        .limit(Math.max(120, Math.floor(limit * 4)));
+      const [allNonGoogle, allGoogle, allFactcheck] = await Promise.all([nonGoogleReqAll, googleReqAll, factcheckReqAll]);
+      if (allNonGoogle.error) throw allNonGoogle.error;
+      if (allGoogle.error) throw allGoogle.error;
+      if (allFactcheck.error) throw allFactcheck.error;
+      data = [...(allFactcheck.data || []), ...(allNonGoogle.data || []), ...(allGoogle.data || [])];
+    }
 
     const uniqueById = Array.from(new Map((data || []).map((row) => [String(row.id || row.source_id || Math.random()), row])).values());
     const filtered = dedupeAndFilter(uniqueById);
