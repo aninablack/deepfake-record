@@ -1641,17 +1641,12 @@ function renderGallery() {
   if (mobileMasonry) {
     const leftCol = [];
     const rightCol = [];
-    let leftHeight = 0;
-    let rightHeight = 0;
     list.forEach((c, index) => {
-      const titleChars = String(c.title || '').length;
-      const estimatedHeight = 200 + 20 + (titleChars * 0.8) + 40;
-      if (leftHeight <= rightHeight) {
+      // Preserve strict chronological sequence across rows on mobile.
+      if (index % 2 === 0) {
         leftCol.push(cardHtml(c));
-        leftHeight += estimatedHeight;
       } else {
         rightCol.push(cardHtml(c));
-        rightHeight += estimatedHeight;
       }
     });
     galleryEl.innerHTML = `<div class="df-gallery-col">${leftCol.join('')}</div><div class="df-gallery-col">${rightCol.join('')}</div>`;
