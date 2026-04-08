@@ -591,7 +591,10 @@ module.exports = async (req, res) => {
     const uniqueById = Array.from(new Map((data || []).map((row) => [String(row.id || row.source_id || Math.random()), row])).values());
     const filtered = dedupeAndFilter(uniqueById);
     const rebalanced = rebalanceSources(filtered, limit);
-    const linkable = rebalanced.filter((row) => !!String(row.article_url || row.claim_url || "").trim());
+    const newestFirst = [...rebalanced].sort(
+      (a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()
+    );
+    const linkable = newestFirst.filter((row) => !!String(row.article_url || row.claim_url || "").trim());
     const clean = linkable.map((row) => ({ ...row, ingest_source: deriveIngestSource(row) }));
     res.status(200).json({ ok: true, incidents: clean });
   } catch (error) {
