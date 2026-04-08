@@ -1279,6 +1279,33 @@ function hasDeepfakeSignal(text) {
   );
 }
 
+function hasIncidentHarmSignal(text) {
+  return /(victim|victimized|lawsuit|sued|arrest|charged|jailed|banned|ban|removed|takedown|scam|fraud|impersonation|child porn|non-consensual|abuse|harassment|extortion|identity theft|sexual(?:ized)? deepfake|revenge porn|illegal|criminal|court|judge|prosecutor|indicted|convicted)/i.test(
+    String(text || '')
+  );
+}
+
+function isGateSampleExcludedByStyle(item) {
+  const title = String(item?.title || '').toLowerCase();
+  const url = String(item?.article_url || '').toLowerCase();
+  const hay = `${title} ${url}`;
+  return (
+    /\/opinion\/|\/analysis\/|\/explainer\/|\/features?\//.test(url) ||
+    /\b(opinion|analysis|explainer|newsletter|digest|roundup)\b/.test(hay) ||
+    /^how to\b/.test(title) ||
+    /\bwelcome to\b/.test(title)
+  );
+}
+
+function parseDomainSet(raw) {
+  return new Set(
+    String(raw || '')
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean)
+  );
+}
+
 function evaluateIngestGate({ fetched, normalizedKept, deduped, incidents }) {
   const minFetched = Math.max(1, Number(process.env.MIN_FETCHED_PER_INGEST || 300));
   const minNormalizedKept = Math.max(1, Number(process.env.MIN_NORMALIZED_KEPT_PER_INGEST || 15));
@@ -1294,11 +1321,17 @@ function evaluateIngestGate({ fetched, normalizedKept, deduped, incidents }) {
   const sample = [...(incidents || [])]
     .sort((a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime())
     .slice(0, 20);
+  const excludedDomains = parseDomainSet(process.env.GATE_OFFTOPIC_EXCLUDED_DOMAINS || '');
   const sampleOfftopicRows = sample.filter((i) => {
     const sourceType = String(i.source_type || '').toLowerCase();
     if (sourceType === 'factcheck' || sourceType === 'social_report' || sourceType === 'community') return false;
+    if (isGateSampleExcludedByStyle(i)) return false;
+    const domain = String(i.source_domain || '').toLowerCase().trim();
+    if (domain && excludedDomains.has(domain)) return false;
     const hay = `${i.title || ''} ${i.article_url || ''} ${i.claim_url || ''}`;
-    return !hasDeepfakeSignal(hay);
+    if (hasDeepfakeSignal(hay)) return false;
+    if (hasIncidentHarmSignal(hay)) return false;
+    return true;
   });
   const sampleOfftopic = sampleOfftopicRows.length;
   const sampleOfftopicItems = sampleOfftopicRows.map((i) => ({
