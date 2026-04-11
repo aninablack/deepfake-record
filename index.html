@@ -1340,6 +1340,8 @@ function ratioFromType(type) {
 function usesFallbackVisual(url) {
   const normalized = String(url || '').trim();
   if (!normalized || /^(null|undefined|none|n\/a)$/i.test(normalized)) return true;
+  // SVG data URIs are branded category placeholders — display as real card images
+  if (normalized.startsWith('data:image/svg+xml')) return false;
   return normalized.toLowerCase().includes('image.pollinations.ai');
 }
 
@@ -1382,6 +1384,7 @@ function isLikelyLogoImage(url) {
 function proxiedImageUrl(url) {
   const u = String(url || '').trim();
   if (!u) return '';
+  if (u.startsWith('data:')) return u;          // data URIs don't go through the proxy
   if (u.startsWith('/api/image-proxy?')) return u;
   if (u.includes('image.pollinations.ai')) return u;
   return `/api/image-proxy?url=${encodeURIComponent(u)}&pv=2`;

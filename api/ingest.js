@@ -391,6 +391,173 @@ function dedupeIncidents(items) {
   return Array.from(merged.values());
 }
 
+/**
+ * dedupeByStoryCluster — second-pass deduplication that collapses multiple outlets
+ * covering the same real-world incident into a curated set of representatives.
+ *
+ * How it works:
+ *   1. Tokenises each incident title into meaningful 5+ char words (stop-words and
+ *      generic deepfake terms excluded).
+ *   2. Clusters incidents whose token sets share ≥ 2 words AND whose publish dates
+ *      fall within STORY_CLUSTER_WINDOW_DAYS (default 3) of each other AND share
+ *      the same category.
+ *   3. Keeps up to STORY_CLUSTER_MAX (default 2) incidents per cluster, chosen for
+ *      SOURCE DIVERSITY: ideally one specialist/fact-checker and one general-news
+ *      outlet, so each story gets both authority and breadth without flooding the
+ *      feed with 8 articles on the same event.
+ *
+ * Env vars:
+ *   STORY_CLUSTER_MAX          — max articles per story cluster (default 2)
+ *   STORY_CLUSTER_WINDOW_DAYS  — day window for clustering same story (default 3)
+ *
+ * Set STORY_CLUSTER_MAX=0 to disable entirely.
+ */
+function dedupeByStoryCluster(incidents) {
+  const maxPerCluster = Number(
+    process.env.STORY_CLUSTER_MAX != null ? process.env.STORY_CLUSTER_MAX : 2
+  );
+  const windowDays = Number(process.env.STORY_CLUSTER_WINDOW_DAYS || 3);
+
+  if (!Array.isArray(incidents) || incidents.length === 0) return incidents;
+  if (!Number.isFinite(maxPerCluster) || maxPerCluster <= 0) return incidents; // disabled
+
+  // Words present in nearly every deepfake article — excluded from cluster matching
+  const STOP = new Set([
+    'the','and','or','but','for','nor','yet','in','on','at','to','of','by','as',
+    'is','are','was','were','been','be','have','has','had','will','would','could',
+    'should','may','might','can','do','does','did','not','its','their','his','her',
+    'this','that','with','from','about','over','under','after','before','which',
+    'while','since','until','than','then','when','where','what','who','how','why',
+    'into','onto','upon','says','said','show','shows','report','reports','warns',
+    'urges','calls','claim','claims','slams','flags','denies','comes','amid',
+    'against','using','first','last','more','most','also','just','only','even',
+    'still','latest','viral','alert','breaking','accused',
+    // Generic deepfake/AI terms present in almost every title
+    'deepfake','deepfakes','fake','real','video','videos','image','images','audio',
+    'media','online','generated','content','artificial','intelligence','synthetic',
+    'check','fact',
+  ]);
+
+  const MIN_OVERLAP = 2;
+  const MIN_LEN = 5;
+  const maxWindowMs = windowDays * 24 * 60 * 60 * 1000;
+
+  function tokenize(title) {
+    return String(title || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/)
+      .filter(w => w.length >= MIN_LEN && !STOP.has(w));
+  }
+
+  // Quality score for a single item — higher = keep this one
+  function scoreItem(item) {
+    let s = 0;
+    const sp = String(item?.source_priority || '').toLowerCase();
+    if (sp === 'factchecker') s += 100;
+    else if (sp === 'major_outlet') s += 50;
+    if (String(item?.image_type || '').toLowerCase() === 'documented') s += 25;
+    s += Math.round((Number(item?.confidence) || 0) * 20);
+    const st = String(item?.source_type || '').toLowerCase();
+    if (st === 'factcheck') s += 15;
+    else if (st === 'news') s += 5;
+    return s;
+  }
+
+  // Tier for source diversity picking: 0 = specialist/factcheck, 1 = general news, 2 = other
+  function sourceTier(item) {
+    const sp = String(item?.source_priority || '').toLowerCase();
+    const st = String(item?.source_type || '').toLowerCase();
+    if (sp === 'factchecker' || st === 'factcheck') return 0;
+    if (sp === 'major_outlet') return 1;
+    if (st === 'news') return 2;
+    return 3;
+  }
+
+  /**
+   * Pick up to `n` items from a cluster, prioritising source diversity.
+   * Strategy: take the best item from each source tier in order, filling
+   * remaining slots with the next-best overall. This ensures e.g. a fact-check
+   * source and a general news source appear together rather than two identical
+   * general-news articles.
+   */
+  function pickDiverse(items, n) {
+    if (items.length <= n) return items;
+    const sorted = [...items].sort((a, b) => scoreItem(b) - scoreItem(a));
+    if (n === 1) return [sorted[0]];
+
+    const picked = [];
+    const used = new Set();
+
+    // First pass: one best item per tier
+    for (let tier = 0; tier <= 3 && picked.length < n; tier++) {
+      const candidate = sorted.find(
+        (item, idx) => sourceTier(item) === tier && !used.has(idx)
+      );
+      if (candidate) {
+        used.add(sorted.indexOf(candidate));
+        picked.push(candidate);
+      }
+    }
+
+    // Second pass: fill remaining slots with next-best overall
+    for (let i = 0; i < sorted.length && picked.length < n; i++) {
+      if (!used.has(i)) {
+        picked.push(sorted[i]);
+        used.add(i);
+      }
+    }
+
+    return picked;
+  }
+
+  // Clusters: { items, tokenPool, minMs, maxMs, category }
+  const clusters = [];
+
+  for (const incident of incidents) {
+    const tokens = tokenize(incident.title);
+    const publishedMs = new Date(incident.published_at || 0).getTime();
+    const category = String(incident.category || '').toLowerCase();
+
+    let bestCluster = null;
+    let bestOverlap = MIN_OVERLAP - 1;
+
+    for (const cluster of clusters) {
+      if (cluster.category !== category) continue;
+      if (publishedMs < cluster.minMs - maxWindowMs || publishedMs > cluster.maxMs + maxWindowMs) continue;
+      const overlap = tokens.filter(t => cluster.tokenPool.has(t)).length;
+      if (overlap > bestOverlap) {
+        bestOverlap = overlap;
+        bestCluster = cluster;
+      }
+    }
+
+    if (bestCluster) {
+      bestCluster.items.push(incident);
+      for (const t of tokens) bestCluster.tokenPool.add(t);
+      bestCluster.minMs = Math.min(bestCluster.minMs, publishedMs);
+      bestCluster.maxMs = Math.max(bestCluster.maxMs, publishedMs);
+    } else {
+      clusters.push({
+        items: [incident],
+        tokenPool: new Set(tokens),
+        minMs: publishedMs,
+        maxMs: publishedMs,
+        category,
+      });
+    }
+  }
+
+  const result = [];
+  for (const cluster of clusters) {
+    result.push(...pickDiverse(cluster.items, maxPerCluster));
+  }
+
+  return result.sort(
+    (a, b) => new Date(b.published_at || 0).getTime() - new Date(a.published_at || 0).getTime()
+  );
+}
+
 function matchTag(block, tag) {
   const re = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i');
   const m = block.match(re);
@@ -1569,7 +1736,7 @@ module.exports = async (_req, res) => {
       mergedRaw.map((item, idx) => normalize(client, item, idx, dropCounters))
     );
     const normalizedKept = normalized.filter(Boolean);
-    const deduped = dedupeIncidents(normalizedKept);
+    const deduped = dedupeByStoryCluster(dedupeIncidents(normalizedKept));
     const incidents = balanceIncidentsBySourceType(deduped);
     const contextArticles = await Promise.all(rawContext.map(async (article) => {
       const title = (article.title || '').trim();
