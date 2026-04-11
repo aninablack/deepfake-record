@@ -1583,8 +1583,19 @@ function attachImageFallbacks() {
         return;
       }
 
-      // Skip all further checks if already on a fallback
-      if (imgEl.dataset.pollinationsAttempted || String(imgEl.src || '').startsWith('data:')) {
+      // Skip if already in the Pollinations/SVG fallback phase
+      if (imgEl.dataset.pollinationsAttempted) return;
+
+      const src      = String(imgEl.src || '');
+      const title    = imgEl.getAttribute('data-fallback-title')    || '';
+      const summary  = imgEl.getAttribute('data-fallback-summary')  || '';
+      const category = imgEl.getAttribute('data-fallback-category') || 'entertainment';
+
+      // SVG category placeholder loaded — swap to article-specific Pollinations image.
+      // If Pollinations fails the error handler will reinstate the SVG as a last resort.
+      if (src.startsWith('data:image/svg+xml')) {
+        imgEl.dataset.pollinationsAttempted = '1';
+        imgEl.src = generatedFallbackImageFromContext(title, summary, category);
         return;
       }
 
@@ -1593,9 +1604,6 @@ function attachImageFallbacks() {
       const cardEl = imgEl.closest('.df-card');
       const articleUrl = cardEl ? (cardEl.getAttribute('data-url') || '') : '';
       if (articleUrl && isLogoSourceDomainFE(articleUrl)) {
-        const title    = imgEl.getAttribute('data-fallback-title')    || '';
-        const summary  = imgEl.getAttribute('data-fallback-summary')  || '';
-        const category = imgEl.getAttribute('data-fallback-category') || 'entertainment';
         imgEl.dataset.pollinationsAttempted = '1';
         imgEl.src = generatedFallbackImageFromContext(title, summary, category);
         return;
@@ -1605,9 +1613,6 @@ function attachImageFallbacks() {
       if (w > 0 && h > 0) {
         const ratio = w / h;
         if (ratio > 3.2 || ratio < 0.45) {
-          const title    = imgEl.getAttribute('data-fallback-title')    || '';
-          const summary  = imgEl.getAttribute('data-fallback-summary')  || '';
-          const category = imgEl.getAttribute('data-fallback-category') || 'entertainment';
           imgEl.dataset.pollinationsAttempted = '1';
           imgEl.src = generatedFallbackImageFromContext(title, summary, category);
         }
