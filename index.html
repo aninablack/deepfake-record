@@ -1526,6 +1526,32 @@ ${corners}
   return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
 }
 
+// Domains that serve site logos / brand headers as their og:image.
+// Must stay in sync with LOGO_SOURCE_DOMAINS in lib/placeholders.js.
+const LOGO_SOURCE_DOMAINS_FE = new Set([
+  'jdsupra.com',
+  'lexology.com',
+  'newkerala.com',
+  'familylaw.co.uk',
+  'wbur.org',
+  'einpresswire.com',
+  'eprnews.com',
+  'netnewsledger.com',
+  'itbiznews.com',
+  'devdiscourse.com',
+]);
+
+function isLogoSourceDomainFE(url) {
+  if (!url) return false;
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+    return LOGO_SOURCE_DOMAINS_FE.has(host) ||
+      [...LOGO_SOURCE_DOMAINS_FE].some(d => host.endsWith('.' + d));
+  } catch {
+    return false;
+  }
+}
+
 function attachImageFallbacks() {
   document.querySelectorAll('.df-card-img img').forEach((imgEl) => {
     if (imgEl.dataset.boundError === '1') return;
@@ -1557,17 +1583,30 @@ function attachImageFallbacks() {
         return;
       }
 
-      // Logo / site-brand detection: extreme aspect ratio (very wide banner or very tall icon)
-      // Only attempt once — skip if we already swapped to Pollinations or SVG
-      if (
-        w > 0 && h > 0 &&
-        !imgEl.dataset.pollinationsAttempted &&
-        !String(imgEl.src || '').startsWith('data:')
-      ) {
+      // Skip all further checks if already on a fallback
+      if (imgEl.dataset.pollinationsAttempted || String(imgEl.src || '').startsWith('data:')) {
+        return;
+      }
+
+      // Logo domain blocklist: articles from known logo-serving sources get
+      // replaced with an AI-generated image even if the logo loaded fine.
+      const cardEl = imgEl.closest('.df-card');
+      const articleUrl = cardEl ? (cardEl.getAttribute('data-url') || '') : '';
+      if (articleUrl && isLogoSourceDomainFE(articleUrl)) {
+        const title    = imgEl.getAttribute('data-fallback-title')    || '';
+        const summary  = imgEl.getAttribute('data-fallback-summary')  || '';
+        const category = imgEl.getAttribute('data-fallback-category') || 'entertainment';
+        imgEl.dataset.pollinationsAttempted = '1';
+        imgEl.src = generatedFallbackImageFromContext(title, summary, category);
+        return;
+      }
+
+      // Extreme aspect ratio detection (very wide banner or very tall icon)
+      if (w > 0 && h > 0) {
         const ratio = w / h;
         if (ratio > 3.2 || ratio < 0.45) {
-          const title   = imgEl.getAttribute('data-fallback-title')    || '';
-          const summary = imgEl.getAttribute('data-fallback-summary')  || '';
+          const title    = imgEl.getAttribute('data-fallback-title')    || '';
+          const summary  = imgEl.getAttribute('data-fallback-summary')  || '';
           const category = imgEl.getAttribute('data-fallback-category') || 'entertainment';
           imgEl.dataset.pollinationsAttempted = '1';
           imgEl.src = generatedFallbackImageFromContext(title, summary, category);
