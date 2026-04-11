@@ -414,7 +414,7 @@ function dedupeIncidents(items) {
  */
 function dedupeByStoryCluster(incidents) {
   const maxPerCluster = Number(
-    process.env.STORY_CLUSTER_MAX != null ? process.env.STORY_CLUSTER_MAX : 2
+    process.env.STORY_CLUSTER_MAX != null ? process.env.STORY_CLUSTER_MAX : 4
   );
   const windowDays = Number(process.env.STORY_CLUSTER_WINDOW_DAYS || 3);
 
