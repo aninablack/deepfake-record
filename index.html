@@ -1449,20 +1449,132 @@ function handleImageError(imgEl) {
   imgEl.remove();
 }
 
+/**
+ * Client-side category SVG placeholders — mirrors the backend designs in
+ * lib/placeholders.js so cards look consistent whether the SVG is served
+ * from Supabase (new articles) or generated here as a last-resort fallback.
+ */
+function categorySvgDataUri(category) {
+  const key = String(category || '').toLowerCase();
+  const designs = {
+    fraud: {
+      bg: '#0d1117', tint: '#1a0808', accent: '#E53E3E', label: 'FRAUD INCIDENT',
+      icon: `<circle cx="400" cy="218" r="130" fill="#cc1a1a" opacity=".05"/>
+<g stroke="#E53E3E" fill="none">
+  <line x1="280" y1="170" x2="400" y2="218" stroke-opacity=".28" stroke-width="1"/>
+  <line x1="522" y1="163" x2="400" y2="218" stroke-opacity=".28" stroke-width="1"/>
+  <line x1="465" y1="298" x2="400" y2="218" stroke-opacity=".28" stroke-width="1"/>
+  <line x1="318" y1="305" x2="400" y2="218" stroke-opacity=".28" stroke-width="1"/>
+  <circle cx="400" cy="218" r="10" fill="#E53E3E" fill-opacity=".75" stroke="none"/>
+  <circle cx="280" cy="170" r="5" stroke-opacity=".65" stroke-width="1.5"/>
+  <circle cx="522" cy="163" r="5" stroke-opacity=".65" stroke-width="1.5"/>
+  <circle cx="465" cy="298" r="5" stroke-opacity=".65" stroke-width="1.5"/>
+  <circle cx="318" cy="305" r="5" stroke-opacity=".65" stroke-width="1.5"/>
+  <circle cx="400" cy="218" r="42" stroke-opacity=".18" stroke-width="1" stroke-dasharray="4 4"/>
+</g>`,
+    },
+    political: {
+      bg: '#0a0e1a', tint: '#080c18', accent: '#3182CE', label: 'POLITICAL INCIDENT',
+      icon: `<g fill="none" stroke="#3182CE">
+  <circle cx="400" cy="210" r="160" fill="#1a4a8a" fill-opacity=".06" stroke="none"/>
+  <circle cx="400" cy="210" r="90" stroke-opacity=".13" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <circle cx="400" cy="210" r="52" stroke-opacity=".28" stroke-width="2" stroke-dasharray="5 3"/>
+  <circle cx="400" cy="210" r="12" fill="#3182CE" fill-opacity=".8" stroke="none"/>
+  <line x1="400" y1="198" x2="400" y2="72" stroke-opacity=".45" stroke-width="2.5"/>
+  <line x1="400" y1="340" x2="368" y2="388" stroke-opacity=".38" stroke-width="2"/>
+  <line x1="400" y1="340" x2="432" y2="388" stroke-opacity=".38" stroke-width="2"/>
+  <line x1="355" y1="290" x2="445" y2="290" stroke-opacity=".28" stroke-width="1.5"/>
+</g>`,
+    },
+    entertainment: {
+      bg: '#0f0d09', tint: '#18140a', accent: '#D69E2E', label: 'SYNTHETIC MEDIA',
+      icon: `<g fill="none" stroke="#D69E2E">
+  <rect x="232" y="118" width="336" height="210" rx="8" stroke-opacity=".45" stroke-width="2.5"/>
+  <rect x="244" y="130" width="312" height="186" rx="5" stroke-opacity=".2" stroke-width="1"/>
+  <line x1="232" y1="192" x2="568" y2="192" stroke-opacity=".14" stroke-width="1"/>
+  <line x1="232" y1="225" x2="568" y2="225" stroke-opacity=".14" stroke-width="1"/>
+  <line x1="350" y1="328" x2="450" y2="328" stroke-opacity=".32" stroke-width="2"/>
+  <line x1="372" y1="328" x2="372" y2="356" stroke-opacity=".32" stroke-width="2"/>
+  <line x1="428" y1="328" x2="428" y2="356" stroke-opacity=".32" stroke-width="2"/>
+  <line x1="338" y1="356" x2="462" y2="356" stroke-opacity=".32" stroke-width="2"/>
+</g>
+<ellipse cx="400" cy="223" rx="68" ry="55" fill="#D69E2E" opacity=".07"/>
+<circle cx="400" cy="223" r="9" fill="#D69E2E" opacity=".75"/>`,
+    },
+  };
+  const d = designs[key] || designs.entertainment;
+  const grid = `<g stroke="#fff" stroke-opacity=".04" stroke-width="1">
+<line x1="0" y1="75" x2="800" y2="75"/><line x1="0" y1="150" x2="800" y2="150"/>
+<line x1="0" y1="225" x2="800" y2="225"/><line x1="0" y1="300" x2="800" y2="300"/>
+<line x1="0" y1="375" x2="800" y2="375"/><line x1="133" y1="0" x2="133" y2="450"/>
+<line x1="266" y1="0" x2="266" y2="450"/><line x1="400" y1="0" x2="400" y2="450"/>
+<line x1="533" y1="0" x2="533" y2="450"/><line x1="666" y1="0" x2="666" y2="450"/>
+</g>`;
+  const corners = `<g fill="none" stroke="${d.accent}" stroke-opacity=".18" stroke-width="1.5">
+<path d="M14,14 L14,34 M14,14 L34,14"/><path d="M786,14 L786,34 M786,14 L766,14"/>
+<path d="M14,436 L14,416 M14,436 L34,436"/><path d="M786,436 L786,416 M786,436 L766,436"/>
+</g>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450">
+<rect width="800" height="450" fill="${d.bg}"/>
+<rect width="800" height="450" fill="${d.tint}" opacity=".45"/>
+${grid}${d.icon}
+<rect x="0" y="441" width="800" height="9" fill="${d.accent}" opacity=".35"/>
+<rect x="0" y="441" width="220" height="9" fill="${d.accent}" opacity=".9"/>
+<text x="32" y="424" font-family="monospace" font-size="10" fill="${d.accent}" letter-spacing="3" opacity=".65">${d.label}</text>
+${corners}
+</svg>`;
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
 function attachImageFallbacks() {
   document.querySelectorAll('.df-card-img img').forEach((imgEl) => {
     if (imgEl.dataset.boundError === '1') return;
     imgEl.dataset.boundError = '1';
-    imgEl.addEventListener('error', () => handleImageError(imgEl));
+
+    imgEl.addEventListener('error', () => {
+      // Cascade: if Pollinations was attempted and failed, show category SVG
+      if (imgEl.dataset.pollinationsAttempted === '1') {
+        imgEl.dataset.pollinationsAttempted = 'done';
+        const category = imgEl.getAttribute('data-fallback-category') || 'entertainment';
+        imgEl.src = categorySvgDataUri(category);
+        return;
+      }
+      // SVG data URIs should never error; if they do just remove the card image
+      if (String(imgEl.src || '').startsWith('data:')) {
+        handleImageError(imgEl);
+        return;
+      }
+      handleImageError(imgEl);
+    });
+
     imgEl.addEventListener('load', () => {
-      // Some publishers return 1x1/very small placeholders that are technically valid images.
-      // Treat those as invalid and fall back to title-based display.
       const w = Number(imgEl.naturalWidth || 0);
       const h = Number(imgEl.naturalHeight || 0);
+
+      // Tiny images (1×1 trackers etc.) — remove
       if ((w > 0 && w < 40) || (h > 0 && h < 40)) {
         handleImageError(imgEl);
+        return;
+      }
+
+      // Logo / site-brand detection: extreme aspect ratio (very wide banner or very tall icon)
+      // Only attempt once — skip if we already swapped to Pollinations or SVG
+      if (
+        w > 0 && h > 0 &&
+        !imgEl.dataset.pollinationsAttempted &&
+        !String(imgEl.src || '').startsWith('data:')
+      ) {
+        const ratio = w / h;
+        if (ratio > 3.2 || ratio < 0.45) {
+          const title   = imgEl.getAttribute('data-fallback-title')    || '';
+          const summary = imgEl.getAttribute('data-fallback-summary')  || '';
+          const category = imgEl.getAttribute('data-fallback-category') || 'entertainment';
+          imgEl.dataset.pollinationsAttempted = '1';
+          imgEl.src = generatedFallbackImageFromContext(title, summary, category);
+        }
       }
     });
+
     if (imgEl.complete && imgEl.naturalWidth === 0) {
       handleImageError(imgEl);
     }
