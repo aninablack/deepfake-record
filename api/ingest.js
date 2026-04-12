@@ -1297,7 +1297,11 @@ async function normalize(client, article, index, dropCounters = null) {
     return null;
   }
   const image = await resolveImage(article, { client });
-  const imageUrl = image.url;
+  // Never persist SVG data URIs — they're 2-4 KB per row and are the main
+  // cause of Supabase Disk IO budget depletion. The frontend generates
+  // category SVGs and Pollinations fallbacks client-side, so storing null
+  // here is equivalent from the user's perspective.
+  const imageUrl = (image.url && !image.url.startsWith('data:')) ? image.url : null;
   const reportedPlatforms = detectReportedPlatforms(`${title} ${relevanceSummary} ${articleUrl || ''}`);
   const reportedOn = reportedPlatforms.length ? reportedPlatforms.join(',') : null;
   const modalities = deriveModalities(`${title} ${relevanceSummary}`);
