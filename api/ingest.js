@@ -990,6 +990,81 @@ function utcDayRange(date = new Date()) {
   return { start: start.toISOString(), end: end.toISOString() };
 }
 
+function readHeader(req, name) {
+  const value = req?.headers?.[name] || req?.headers?.[name.toLowerCase()];
+  if (Array.isArray(value)) return String(value[0] || '');
+  return String(value || '');
+}
+
+function hasValidIngestKey(req) {
+  const expected = String(process.env.INGEST_SECRET || '').trim();
+  if (!expected) return true;
+  const fromHeader = readHeader(req, 'x-ingest-key').trim();
+  const fromQuery = String(req?.query?.key || '').trim();
+  const provided = fromHeader || fromQuery;
+  return Boolean(provided) && provided === expected;
+}
+
+async function getIngestBudgetStatus(client) {
+  const maxRunsPerDay = Math.max(1, Number(process.env.INGEST_MAX_RUNS_PER_DAY || 6));
+  const cooldownMinutes = Math.max(1, Number(process.env.INGEST_COOLDOWN_MINUTES || 180));
+  const cooldownMs = cooldownMinutes * 60 * 1000;
+  const now = Date.now();
+
+  const { start, end } = utcDayRange();
+  const countRes = await client
+    .from('ingest_runs')
+    .select('id', { count: 'exact', head: true })
+    .gte('run_at', start)
+    .lt('run_at', end);
+
+  const lastRunRes = await client
+    .from('ingest_runs')
+    .select('run_at')
+    .order('run_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  // If optional analytics table doesn't exist, do not block ingest.
+  if (countRes.error || lastRunRes.error) {
+    return { allowed: true, reason: null, telemetry_unavailable: true };
+  }
+
+  const runsToday = Number(countRes.count || 0);
+  if (runsToday >= maxRunsPerDay) {
+    return {
+      allowed: false,
+      reason: 'daily_run_budget_reached',
+      runs_today: runsToday,
+      max_runs_per_day: maxRunsPerDay,
+      cooldown_minutes: cooldownMinutes,
+    };
+  }
+
+  const lastRunAt = lastRunRes?.data?.run_at ? new Date(lastRunRes.data.run_at).getTime() : null;
+  if (Number.isFinite(lastRunAt)) {
+    const elapsedMs = now - lastRunAt;
+    if (elapsedMs < cooldownMs) {
+      return {
+        allowed: false,
+        reason: 'cooldown_active',
+        runs_today: runsToday,
+        max_runs_per_day: maxRunsPerDay,
+        cooldown_minutes: cooldownMinutes,
+        next_allowed_in_minutes: Math.ceil((cooldownMs - elapsedMs) / 60000),
+      };
+    }
+  }
+
+  return {
+    allowed: true,
+    reason: null,
+    runs_today: runsToday,
+    max_runs_per_day: maxRunsPerDay,
+    cooldown_minutes: cooldownMinutes,
+  };
+}
+
 async function canUseNewsDataToday(client) {
   const apiKey = String(process.env.NEWSDATA_API_KEY || '').trim();
   if (!apiKey) return false;
@@ -1590,9 +1665,28 @@ async function logIncidentEvents(client, incidents) {
   return { inserted: rows.length };
 }
 
-module.exports = async (_req, res) => {
+module.exports = async (req, res) => {
   try {
     const client = getServiceClient();
+    if (!hasValidIngestKey(req)) {
+      return res.status(401).json({
+        ok: false,
+        error: 'unauthorized',
+        reason: 'missing_or_invalid_ingest_key',
+      });
+    }
+
+    const budget = await getIngestBudgetStatus(client);
+    if (!budget.allowed) {
+      return res.status(200).json({
+        ok: true,
+        skipped: true,
+        skip_reason: budget.reason,
+        budget,
+        at: new Date().toISOString(),
+      });
+    }
+
     let raw = [];
     const warnings = [];
     let gdeltPrimaryFailed = false;
@@ -1689,7 +1783,8 @@ module.exports = async (_req, res) => {
               'AI video manipulation',
               'synthetic media incident',
             ];
-        const queryCap = gdeltPrimaryFailed ? 8 : 2;
+        const configuredCap = Math.max(0, Number(process.env.NEWSDATA_TARGETED_QUERY_CAP || 1));
+        const queryCap = Math.min(gdeltPrimaryFailed ? 8 : 2, configuredCap);
         for (const q of targetedQueries.slice(0, queryCap)) {
           try {
             const targeted = await fetchNewsDataArticles(q, 5);
@@ -1809,6 +1904,12 @@ module.exports = async (_req, res) => {
       context_upserted: contextResult.inserted,
       archived_events_logged: eventsResult.inserted || 0,
       gdelt_failed_feeds_skipped: gdeltFailedFeedsSkipped,
+      budget,
+      limits: {
+        rss_feeds_per_run: config.rssFeedsPerRun,
+        rss_max_items_per_feed: config.rssMaxItemsPerFeed,
+        newsdata_targeted_query_cap: Math.max(0, Number(process.env.NEWSDATA_TARGETED_QUERY_CAP || 1)),
+      },
       dropped: dropCounters,
       warning: warnings.length ? warnings.join(' ') : null,
       at: new Date().toISOString(),
