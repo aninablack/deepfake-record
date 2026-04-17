@@ -637,9 +637,6 @@
     }
     .df-image-source-badge { font-size: 9px; letter-spacing: 0.06em; padding: 3px 6px; }
     .df-card-img { aspect-ratio: var(--ratio, 4/3); max-height: none; }
-    .df-ticker { width: 100%; overflow: hidden; }
-    .df-ticker-track { width: max-content; max-width: none; }
-    .df-ticker-item { font-size: 12px; letter-spacing: 0.04em; }
     .df-footer-note { font-size: 12px; line-height: 1.5; }
   }
 
@@ -825,37 +822,6 @@
   .df-badge-culture { background: #fdf1e7; color: #7b4a1f; }
   .df-badge-entertainment { background: #f5eaf8; color: #4a1a60; }
 
-  .df-ticker {
-    position: sticky;
-    bottom: 0;
-    background: #111;
-    color: #fff;
-    padding: 10px 0;
-    overflow: hidden;
-    border-top: 1px solid #111;
-  }
-
-  .df-ticker-track {
-    display: flex;
-    gap: 48px;
-    animation: ticker 28s linear infinite;
-    white-space: nowrap;
-  }
-
-  @keyframes ticker {
-    0% { transform: translateX(0); }
-    100% { transform: translateX(-50%); }
-  }
-
-  .df-ticker-item {
-    font-size: 11px;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    font-weight: 300;
-    flex-shrink: 0;
-  }
-
-  .df-ticker-sep { color: #555; margin: 0 12px; }
   .df-footer-note {
     border-top: 1px solid #1e1e1e;
     padding: 12px 20px 18px;
@@ -1238,9 +1204,6 @@
 
   <div class="df-gallery" id="gallery"></div>
 
-  <div class="df-ticker">
-    <div class="df-ticker-track" id="ticker"></div>
-  </div>
   <div class="df-footer-note">
     Third-party editorial images are shown as linked previews for reporting context only. Copyright remains with original publishers/licensors. We do not remove attribution marks or watermarks. Use each card’s source link for original article rights and licensing terms.
   </div>
@@ -1275,14 +1238,6 @@ const fallbackCards = [
 
 let liveCards = [...fallbackCards];
 let verifiedCards = [];
-let tickerItems = [
-  'Live synthetic media tracker',
-  'Status: reported as synthetic, auto-classified',
-  'No manual approval queue',
-  'GDELT refresh every 15 minutes',
-  'Free pipeline mode enabled'
-];
-
 let counter = 2847;
 let scannedCounter = 2847;
 let filter = 'all';
@@ -1290,7 +1245,6 @@ let searchQuery = '';
 let mode = 'live';
 let liveTotal = 0;
 let verifiedTotal = 0;
-let tickerInitialized = false;
 let activeArticleUrl = '';
 
 const typeToCardBadge = {
@@ -1863,12 +1817,6 @@ function openArticleInNewTab() {
   window.open(activeArticleUrl, '_blank', 'noopener,noreferrer');
 }
 
-function renderTicker() {
-  const loopItems = [...tickerItems, ...tickerItems];
-  document.getElementById('ticker').innerHTML = loopItems.map((t) => `<span class="df-ticker-item">${safeText(t)}<span class="df-ticker-sep">·</span></span>`).join('');
-  tickerInitialized = true;
-}
-
 function mapIncident(incident, index) {
   const headline = `${incident.title || ''} ${incident.summary || ''}`.toLowerCase();
   let type = incident.category || 'entertainment';
@@ -1986,32 +1934,8 @@ async function loadLiveData() {
       verifiedTotal = statsPayload.verified_total || verifiedCards.length || verifiedTotal;
       scannedCounter = statsPayload.scanned_total || scannedCounter;
 
-      const nextTickerItems = [
-        `${liveTotal.toLocaleString()} live incidents logged`,
-        `${verifiedTotal.toLocaleString()} verified archive incidents`,
-        `${scannedCounter.toLocaleString()} items scanned`,
-        `Last ingest run: ${statsPayload.latest_ingest_minutes_ago ? `${statsPayload.latest_ingest_minutes_ago} minutes ago` : 'unknown'}`,
-        `Latest incident age: ${statsPayload.latest_incident_minutes_ago ? `${statsPayload.latest_incident_minutes_ago} minutes` : 'unknown'}`,
-        `Top platform: ${statsPayload.top_platform || 'Unknown'}`,
-        'Status: reported as synthetic',
-        'Auto-categorized feed',
-        'No manual approval queue'
-      ];
-      if (!tickerInitialized) {
-        tickerItems = nextTickerItems;
-      }
     }
   } catch (error) {
-    const nextTickerItems = [
-      'Live connection unavailable',
-      'Showing fallback dataset',
-      'Check Supabase env keys',
-      'Run /api/ingest to populate data',
-      'No manual approval queue'
-    ];
-    if (!tickerInitialized) {
-      tickerItems = nextTickerItems;
-    }
   }
 
   if (!liveTotal) {
@@ -2028,7 +1952,6 @@ async function loadLiveData() {
   }
 
   renderGallery();
-  if (!tickerInitialized) renderTicker();
 }
 
 function updateHeroCounters() {
@@ -2047,7 +1970,6 @@ function updateHeroCounters() {
 }
 
 renderGallery();
-renderTicker();
 document.getElementById('curateForm')?.addEventListener('submit', submitCuratedUrl);
 document.getElementById('articleSheetCloseBtn')?.addEventListener('click', closeArticleSheet);
 document.getElementById('articleSheetBackdrop')?.addEventListener('click', closeArticleSheet);
